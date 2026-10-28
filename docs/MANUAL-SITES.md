@@ -2,7 +2,9 @@
 
 Every manual site in TorKe starts **off**. An admin turns sites on in the tool's settings (Workspace > Tools > TorKe > gear).
 
-TorKe treats sites three ways:
+Your own manuals come first: PDFs attached to the item in Homebox (type Manual) or attached in a chat. TorKe reads those on your own server, so no site's terms are involved.
+
+TorKe treats manual sites three ways:
 
 - **Read through an API:** TorKe reads the content through the site's official API and links back to it.
 - **Links only:** TorKe never opens the site's pages. It gives the user search links to open themselves, because the site's terms ban automated access or couldn't be confirmed.

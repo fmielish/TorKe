@@ -56,7 +56,12 @@ async def build_cards(tmp: Path) -> dict:
     t.valves.repair_log = False
     car, _ = await t.open_project("2012 Honda Civic", "Front brake pads and rotors", "vehicle", "Honda",
                                   "Civic", "2012", __user__=user)
-    return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode()}
+    owner = {"id": "preview", "valves": torke.Tools.UserValves(my_tools="3/8 in drive torque wrench")}
+    await t.save_needed_tools(["jack stands"], "Front brake pads and rotors", "2012 Honda Civic", __user__=owner)
+    tools, _ = await t.check_tools(["torque wrench", "14 mm socket", "17 mm socket", "C-clamp or caliper piston tool",
+                                    "jack stands", "floor jack", "wire brush"], "Front brake pads and rotors",
+                                   "2012 Honda Civic", __user__=owner)
+    return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode()}
 
 
 async def main(out: Path):

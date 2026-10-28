@@ -17,10 +17,10 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 
 | Button | What it does | Out of the box |
 |---|---|---|
-| **Manuals** | Finds manuals and repair guides on the sites you turn on | A web search link |
+| **Manuals** | Reads your own manual (attached to the item in Homebox or in the chat), then finds manuals and guides on the sites you turn on | A web search link |
 | **Videos** | Shows YouTube how-to videos as cards you can tap | A YouTube search link. Real results with SearXNG or a YouTube API key |
 | **Parts** | Finds where to buy each part, matched to your model | Search links. Optional parts list in Home Assistant |
-| **Tools you'll need** | Compares the job's tools with what you own | Assumes a basic 100-piece tool kit, a 100-piece socket set and a multimeter |
+| **Tools you'll need** | Finds the job's tools in its manual and shows what you have and what you need | Assumes a basic 100-piece tool kit, a 100-piece socket set and a multimeter |
 | **Safety warnings** | Built-in rules for hazards like lifting a car, brakes, airbags, fuel, house wiring, gas and refrigerant, plus optional US recall checks | Built-in rules |
 | **Repair log** | Keeps each person's finished jobs on your server | Off |
 
@@ -36,7 +36,16 @@ The [setup guide](docs/SETUP.md) covers every setting, SearXNG, YouTube, Homebox
 
 ## Your tools
 
-Each person sets their own tools under **Chat Controls > Valves > TorKe**. The starting point is a basic 100-piece home tool kit, a 100-piece socket set and a multimeter. Switch off what you don't have and add what you do, such as "torque wrench, jack stands, OBD2 scanner". TorKe never assumes a torque wrench, jack stands or specialty tools; it asks.
+<p align="center">
+  <img src="docs/card-tools.png" width="640" alt="Tools card for a brake job: tools you have on the left, tools you need on the right, with a button to add them to the needed tools list">
+</p>
+
+TorKe keeps two lists for each person:
+
+- **Tools you own.** The starting point is a basic 100-piece home tool kit, a 100-piece socket set and a multimeter. To add more, tell TorKe ("I bought a torque wrench"), send a photo of a tool, a kit's contents list or a receipt, or tap **I have it** on the Tools card. With Homebox connected, Homebox is the main list.
+- **Needed tools.** Tools a job needs that you don't have yet. It's separate from the parts list, and a tool comes off it when you get it.
+
+When there's a manual for the job (a PDF attached to the item in Homebox or in the chat, or an iFixit guide), TorKe reads the tools from it. It always asks before saving anything to a list. It never assumes a torque wrench, jack stands or specialty tools.
 
 ## Manual sites
 
@@ -55,7 +64,8 @@ All off by default:
 - **No outside fonts, scripts or tracking.** Cards are self-contained.
 - **Pictures, when turned on,** load from the site they came from, so that site sees the request.
 - **Searches** go through your own SearXNG if you set one. Otherwise TorKe gives you links to open yourself.
-- **The repair log** stays on your Open WebUI server.
+- **The repair log and tool lists** stay on your Open WebUI server.
+- **Homebox:** TorKe only adds new tools, when you allow it. It never changes or deletes anything there.
 
 ## Safety
 
@@ -63,7 +73,7 @@ TorKe points you to the manual and tells you when a job is for a professional, b
 
 ## Status
 
-Version 0.1.0 is a first draft. It passes its offline tests but hasn't been tested in a live Open WebUI yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.2.0 is a draft. It passes its offline tests but hasn't been tested in a live Open WebUI yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 

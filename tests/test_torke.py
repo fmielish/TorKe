@@ -182,11 +182,11 @@ def test_ifixit_guide(tool, monkeypatch):
 # ---------------------------------------------------------------- tools, safety, parts, log
 
 def test_tools_baseline_and_user_list(tool):
-    out = run(tool.tools_on_hand(["torque wrench"], __user__=USER))
+    out = run(tool.check_tools(__user__=USER))
     assert "100-piece socket set" in out and "multimeter" in out and "torque wrench" in out.lower()
     bare = {"id": "u2", "valves": torke.Tools.UserValves(has_starter_kit=False, has_socket_set=False,
                                                           has_multimeter=False, my_tools="")}
-    assert "Nothing listed" in run(tool.tools_on_hand([], __user__=bare))
+    assert "Nothing listed" in run(tool.check_tools([], __user__=bare))
 
 
 def test_safety_with_recalls(tool, monkeypatch):
@@ -271,19 +271,6 @@ def test_cpsc_recalls_for_products(tool, monkeypatch):
     assert "Space heaters recalled" in out and "saferproducts.gov" in seen[0]
 
 
-def test_homebox_lookup(tool, monkeypatch):
-    def fake(url, **kw):
-        if url.endswith("/users/login"):
-            return {"token": "abc"}
-        assert kw["headers"]["Authorization"] == "Bearer abc"
-        return {"items": [{"name": "Torque wrench 3/8", "quantity": 1, "location": {"name": "Pegboard"}}]}
-    monkeypatch.setattr(torke, "_json", fake)
-    tool.valves.homebox_lookup = True
-    tool.valves.homebox_url = "http://homebox:7745"
-    out = run(tool.tools_on_hand(["torque wrench"], __user__=USER))
-    assert "Torque wrench 3/8 (qty 1, Pegboard)" in out
-
-
 def test_playlist_success(tool, monkeypatch):
     posted = []
     monkeypatch.setattr(torke, "_json", lambda url, **kw: {"access_token": "tok"})
@@ -318,4 +305,219 @@ def test_photo_read_from_upload_record(tmp_path):
 def test_missing_user_and_null_args(tool):
     html, _ = body(run(tool.open_project("Drill", None, None, None, None, None)))
     assert "Drill" in html
-    assert "Nothing listed" not in run(tool.tools_on_hand(None))
+    assert "Nothing listed" not in run(tool.check_tools(None))
+
+
+# ---------------------------------------------------------------- tool lists, Homebox and manuals (v0.2)
+
+import urllib.error  # noqa: E402
+import urllib.parse  # noqa: E402
+
+
+def make_pdf(pages):
+    """A small real PDF with one text page per string ("" makes a page with no text)."""
+    objs = {1: b"<< /Type /Catalog /Pages 2 0 R >>",
+            3: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"}
+    kids = " ".join(f"{5 + 2 * i} 0 R" for i in range(len(pages)))
+    objs[2] = f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode()
+    for i, text in enumerate(pages):
+        ops = ["BT /F1 11 Tf 50 750 Td 14 TL"]
+        for ln in text.split("\n"):
+            ops.append("(" + ln.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") + ") Tj T*")
+        stream = ("\n".join(ops) + "\nET").encode() if text else b""
+        objs[4 + 2 * i] = b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream"
+        objs[5 + 2 * i] = (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R "
+                           f">> >> /Contents {4 + 2 * i} 0 R >>").encode()
+    out, offsets = bytearray(b"%PDF-1.4\n"), {}
+    for num in sorted(objs):
+        offsets[num] = len(out)
+        out += f"{num} 0 obj\n".encode() + objs[num] + b"\nendobj\n"
+    xref, total = len(out), max(objs) + 1
+    out += f"xref\n0 {total}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{offsets[n]:010d} 00000 n \n".encode() for n in range(1, total))
+    out += f"trailer\n<< /Size {total} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
+
+
+DISHWASHER_PDF = make_pdf([
+    "Contents\nSafety 1\nDrain pump 2\nError codes 3",
+    "Drain pump removal\nYou will need: Torx screwdriver T20, 7 mm socket, long-nose pliers\n"
+    "Unplug the dishwasher. Remove the 4 screws on the base.",
+    "Error E24: the drain is blocked. Clean the filter and the drain pump.",
+])
+
+
+class FakeHomebox:
+    """Enough of Homebox's API for TorKe: new (0.26+, entities and tags) or old (items and labels)."""
+
+    def __init__(self, new=True):
+        self.new, self.posts = new, []
+        where = "parent" if new else "location"
+        self.entities = [
+            {"id": "e1", "name": "Torque wrench 3/8", "quantity": 1, where: {"name": "Pegboard"},
+             "tags": [{"name": "Tools"}]},
+            {"id": "e2", "name": "Bosch dishwasher SHE3AR75UC", "quantity": 1, "tags": []},
+        ]
+        self.atts = {"e2": [{"id": "a1", "type": "manual", "title": "SHE3AR75UC manual.pdf",
+                             "mimeType": "application/pdf"}]}
+
+    def json(self, url, method="GET", data=None, headers=None, **kw):
+        path = url.split("/api/v1", 1)[1]
+        if path == "/users/login":
+            return {"token": "tok"}
+        assert headers["Authorization"] in ("Bearer tok", "Bearer hb_key")
+        base, _, query = path.partition("?")
+        q = urllib.parse.parse_qs(query)
+        if (self.new and (base.startswith("/items") or base in ("/labels", "/locations"))) or \
+                (not self.new and (base.startswith("/entities") or base == "/tags")):
+            raise urllib.error.HTTPError(url, 404, "not found", {}, None)
+        coll = "/entities" if self.new else "/items"
+        if method == "POST":
+            body = json.loads(data)
+            self.posts.append((base, body))
+            return {"id": "new1", **body}
+        if base in ("/tags", "/labels"):
+            return [{"id": "t1", "name": "Tools"}]
+        if base == "/locations" or q.get("isLocation"):
+            return [{"id": "L1", "name": "Shelf"}, {"id": "L2", "name": "Garage"}]
+        if base == coll:
+            rows = self.entities
+            if q.get("tags" if self.new else "labels"):
+                rows = [e for e in rows if e["tags"]]
+            term = (q.get("q") or [""])[0].lower()
+            if term:
+                rows = [e for e in rows if any(w in e["name"].lower() for w in term.split())]
+            return {"items": rows, "total": len(rows)}
+        if base.startswith(coll + "/"):
+            eid = base.split("/")[2]
+            return {"id": eid, "attachments": self.atts.get(eid, [])}
+        raise AssertionError(path)
+
+    def fetch(self, url, headers=None, max_bytes=0, timeout=0):
+        assert url.endswith(("/entities/e2/attachments/a1", "/items/e2/attachments/a1"))
+        return DISHWASHER_PDF
+
+
+def use_homebox(tool, monkeypatch, new=True, add=False, api_key=""):
+    hb = FakeHomebox(new)
+    monkeypatch.setattr(torke, "_json", hb.json)
+    monkeypatch.setattr(torke, "_fetch_bytes", hb.fetch)
+    tool.valves.homebox_lookup = True
+    tool.valves.homebox_url = "http://homebox:7745"
+    tool.valves.homebox_api_key = api_key
+    tool.valves.homebox_add_tools = add
+    tool.valves.homebox_tools_location = "Garage"
+    torke._PDF_CACHE.clear()
+    return hb
+
+
+def test_tool_matching_rules():
+    assert torke._tool_match("torque wrench", "Torque wrench 3/8 in")
+    assert torke._tool_match("jack stands", "Jack stand, 3 ton")
+    assert torke._tool_match("3/8 drive torque wrench", "torque wrench")
+    assert not torke._tool_match("torque wrench", "wrench")
+    assert not torke._tool_match("10 mm socket", "metric socket set")
+    uv = torke.Tools.UserValves()
+    assert "socket set" in torke._kit_covers("10 mm socket", uv)
+    assert "tool kit" in torke._kit_covers("T20 Torx bit", uv)
+    assert "tool kit" in torke._kit_covers("standard screwdriver", uv)
+    assert torke._kit_covers("torque wrench", uv) == ""
+    assert torke._kit_covers("1/2 in drive breaker bar", uv) == ""
+    assert torke._kit_covers("jack stands", uv) == ""
+
+
+def test_tools_card(tool):
+    user = {"id": "t1", "valves": torke.Tools.UserValves(my_tools="torque wrench 3/8 in")}
+    html, ctx = body(run(tool.check_tools(["torque wrench", "10 mm socket", "jack stands", "<b>x</b> puller"],
+                                          "front brakes", "2012 Honda Civic", __user__=user)))
+    assert "You have" in html and "You need" in html and "Add 2 to my needed tools" in html
+    assert "I have it" in html and "<b>x</b>" not in html
+    assert "torque wrench: have" in ctx and "10 mm socket: kit" in ctx and "jack stands: need" in ctx
+
+
+def test_needed_list_is_separate_and_clears_when_owned(tool, monkeypatch):
+    sent = []
+    monkeypatch.setattr(torke, "_http", lambda url, **kw: sent.append((url, json.loads(kw["data"]))) or "")
+    tool.valves.tools_needed_list = True
+    tool.valves.tools_needed_webhook_url = "http://ha:8123/api/webhook/tools"
+    out = run(tool.save_needed_tools(["jack stands", "32 mm axle nut socket"], "CV axle", "2012 Honda Civic",
+                                     "manual p. 4", __user__=USER))
+    assert "jack stands" in out and "Home Assistant" in out
+    assert sent[0][0].endswith("/tools") and sent[0][1]["tools"] == ["jack stands", "32 mm axle nut socket"]
+    assert "already" in run(tool.save_needed_tools(["jack stands"], "CV axle", "2012 Honda Civic", __user__=USER)).lower()
+    out = run(tool.needed_tools_list("Honda Civic", __user__=USER))
+    assert "32 mm axle nut socket" in out and "manual p. 4" in out
+    out = run(tool.save_my_tools(["jack stands, 3 ton"], "garage", __user__=USER))
+    assert "Saved to your TorKe tool list" in out and "Took 1 off the needed tools list" in out
+    assert "jack stands" not in run(tool.needed_tools_list(__user__=USER))
+    assert "Took 1" in run(tool.remove_needed_tools(["32 mm axle nut socket"], __user__=USER))
+    assert "empty" in run(tool.needed_tools_list(__user__=USER))
+    assert "Removed 1" in run(tool.remove_my_tools(["jack stands, 3 ton"], __user__=USER))
+    assert not any("/parts" in u for u, _ in sent)
+
+
+def test_homebox_new_api_tools_and_adding(tool, monkeypatch):
+    hb = use_homebox(tool, monkeypatch, new=True, api_key="hb_key")
+    html, ctx = body(run(tool.check_tools(["torque wrench", "jack stands"], "brakes", __user__=USER)))
+    assert "Torque wrench 3/8, Pegboard (Homebox)" in html and "jack stands: need" in ctx
+    out = run(tool.save_my_tools(["Jack stands 3 ton"], __user__=USER))
+    assert "Adding to Homebox is off" in out and not hb.posts  # never writes unless allowed
+    tool.valves.homebox_add_tools = True
+    out = run(tool.save_my_tools(["Floor jack", "Torque wrench 3/8"], __user__=USER))
+    assert "Added to Homebox: Floor jack (Garage)" in out and "already in Homebox" in out
+    assert hb.posts == [("/entities", {"name": "Floor jack", "description": "Added by TorKe", "quantity": 1,
+                                       "parentId": "L2", "tagIds": ["t1"]})]
+
+
+def test_homebox_old_api(tool, monkeypatch):
+    hb = use_homebox(tool, monkeypatch, new=False, add=True)
+    html, _ = body(run(tool.check_tools(["torque wrench"], __user__=USER)))
+    assert "Pegboard (Homebox)" in html
+    run(tool.save_my_tools(["Floor jack"], __user__=USER))
+    assert hb.posts == [("/items", {"name": "Floor jack", "description": "Added by TorKe",
+                                    "locationId": "L2", "labelIds": ["t1"]})]
+
+
+def test_manual_attached_in_homebox(tool, monkeypatch):
+    use_homebox(tool, monkeypatch)
+    out = run(tool.find_manuals("Bosch dishwasher", __user__=USER))
+    assert "Attached to Bosch dishwasher SHE3AR75UC in Homebox: SHE3AR75UC manual.pdf" in out
+    out = run(tool.read_item_manual("Bosch dishwasher", "error E24", __user__=USER))
+    assert "--- Page 3 ---" in out and "drain is blocked" in out and torke.MANUAL_NOTE in out
+    out = run(tool.read_item_manual("Bosch dishwasher", page=2, __user__=USER))
+    assert "Drain pump removal" in out
+    out = run(tool.find_tools_in_manual("drain pump", "Bosch dishwasher", __user__=USER))
+    low = out.lower()
+    assert "torx screwdriver" in low and "7 mm socket" in low and "long-nose pliers" in low and "(p2)" in out
+    assert "You will need" in out and "check_tools" in out
+
+
+def test_manual_attached_in_chat_and_scanned_pages(tool, tmp_path):
+    pdf = tmp_path / "manual.pdf"
+    pdf.write_bytes(DISHWASHER_PDF)
+    files = [{"type": "file", "file": {"id": "f1", "path": str(pdf),
+                                       "meta": {"name": "manual.pdf", "content_type": "application/pdf"}}}]
+    out = run(tool.read_item_manual("Bosch dishwasher", "drain pump", __user__=USER, __files__=files))
+    assert "manual.pdf (attached in this chat)" in out and "Page 2" in out
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(make_pdf(["", ""]))
+    files = [{"type": "file", "file": {"id": "f2", "path": str(scan),
+                                       "meta": {"name": "scan.pdf", "content_type": "application/pdf"}}}]
+    assert "no readable text" in run(tool.read_item_manual("x", __user__=USER, __files__=files))
+    assert "No manual file found" in run(tool.read_item_manual("x", __user__=USER))
+
+
+def test_ifixit_tools_from_guide(tool, monkeypatch):
+    monkeypatch.setattr(torke, "_json", lambda url, **kw: {"url": "https://www.ifixit.com/Guide/x/9",
+                                                          "tools": [{"text": "Spudger"}, {"text": "Phillips #1"}]})
+    assert "iFixit is off" in run(tool.find_tools_in_manual(guide_url="https://www.ifixit.com/Guide/x/9"))
+    tool.valves.site_ifixit = True
+    out = run(tool.find_tools_in_manual(guide_url="https://www.ifixit.com/Guide/x/9"))
+    assert "- Spudger" in out and "- Phillips #1" in out
+
+
+def test_open_project_survives_restart(tool):
+    run(tool.open_project("Bosch dishwasher", "won't drain", "appliance", "Bosch", "SHE3AR75UC",
+                          __user__=USER, __chat_id__="c42"))
+    torke._PROJECTS.clear()  # what a restart does
+    assert "Bosch SHE3AR75UC" in run(tool.find_manuals(__user__=USER, __chat_id__="c42"))

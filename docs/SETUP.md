@@ -45,9 +45,11 @@ Open **Workspace > Tools > TorKe > gear**. Every switch starts off.
 | Operation CHARM, LEMON Manuals | Factory car manuals. **Legal gray area**, so read the warning first. | Nothing |
 | Custom manual sites | Other sites TorKe may search and read | Only sites whose terms allow it |
 | Recall checks | US recalls (NHTSA and CPSC) in Safety warnings | Nothing |
-| Repair log | Each person's finished jobs, saved on the server | Nothing (section 8) |
-| Homebox | Checks Homebox for tools you own (read-only) | Homebox address and a login (section 6) |
+| Repair log | Each person's finished jobs, saved on the server | Nothing (section 9) |
+| Homebox | Homebox becomes the list of tools people own, and TorKe reads manuals attached to items | Homebox address and an API key or login (section 6) |
+| Let TorKe add new tools to Homebox | Saves tools people tell TorKe about into Homebox, after they confirm. Never changes or deletes existing items. | Homebox |
 | Parts list | Sends parts to Home Assistant, for example a to-do list | A Home Assistant webhook (section 7) |
+| Needed tools in Home Assistant | Sends needed tools to their own Home Assistant list, separate from parts | A second webhook (section 8) |
 | YouTube playlist | Each person can add videos to their own playlist | Each person's Google sign-in (section 5) |
 | Most results | Results per search, 3 to 10 | |
 
@@ -55,7 +57,7 @@ Open **Workspace > Tools > TorKe > gear**. Every switch starts off.
 
 Each person opens **Chat Controls > Valves > TorKe** in a chat. Non-admin users need the **Allow Chat Valves** permission.
 
-- **Tools they own.** TorKe assumes a basic 100-piece home tool kit, a 100-piece socket set and a basic multimeter. Each can be switched off, and anything else goes in **Other tools I own**, such as "torque wrench 3/8 in, jack stands, OBD2 scanner".
+- **Tools they own.** TorKe assumes a basic 100-piece home tool kit, a 100-piece socket set and a basic multimeter. Each can be switched off. Other tools can be typed in **Other tools I own**, but it's easier to just tell TorKe in a chat (see "Tools you own and tools you need" below).
 - **YouTube sign-in,** for the playlist option (section 5).
 
 ## 4. SearXNG
@@ -88,9 +90,27 @@ Restart SearXNG, then put its address in TorKe's settings, such as `http://searx
 
 **The 7-day catch:** while the Google project is in **Testing**, the refresh token expires after 7 days. Publish the app (**In production**) to stop that. For your own account that's one button, though Google may show an "unverified app" warning when you sign in. Google changes these screens from time to time, so follow its current wording.
 
+## Tools you own and tools you need
+
+TorKe keeps two lists for each person:
+
+- **Tools you own:** the starter kit switches, plus tools they tell TorKe about ("I bought a 3/8 torque wrench"), send a photo of (a tool, a kit's contents list or a receipt), or tap **I have it** on the Tools card. With Homebox on, Homebox is the main list (section 6).
+- **Needed tools:** tools a job needs that they don't have yet. This list is separate from the parts list. A tool comes off it when they save it as owned.
+
+To work out a job's tools, TorKe reads the manual for the job when there is one: a PDF attached to the item in Homebox, a PDF attached in the chat, or an iFixit guide. It shows what it found on the Tools card, with what they have and what they need. **Nothing is saved to a list until the person says yes**, and the card's buttons count as a yes.
+
+TorKe reads text from PDFs. A manual that's only scanned pictures has no text to read, and TorKe says so.
+
 ## 6. Homebox (optional)
 
-Make a separate Homebox login for TorKe, then fill in the Homebox address, user and password in TorKe's settings and turn on **Homebox**. TorKe only searches items; it never adds, changes or deletes anything. Homebox's API paths can change between versions, so try a lookup once after setup.
+With Homebox on, Homebox is the main list of tools people own, and TorKe reads manuals attached to the things being fixed.
+
+1. **Sign-in:** on Homebox 0.26 or later, create an API key under your Homebox profile and paste it into **Homebox API key**. On older versions, fill in a user and password instead. TorKe sees only what that account can see.
+2. **Tools tag:** TorKe looks for tools tagged **Tools** first (change it in **Homebox tools tag**), then searches all items by name.
+3. **Adding tools:** turn on **Let TorKe add new tools to Homebox** if you want TorKe to save new tools there. It creates new items with the Tools tag, in **Homebox tools location** or your first location. It never changes or deletes anything already in Homebox, and it adds nothing until the person confirms. With this off, new tools go to TorKe's own list for that person.
+4. **Manuals:** attach the manual PDF to the item in Homebox with the attachment type **Manual**. TorKe matches the item by name, so name items the way people say them, such as "Bosch dishwasher SHE3AR75UC". The item has to be visible to TorKe's Homebox account.
+
+Homebox 0.26 (June 2026) replaced its "items" API with a new "entities" API. TorKe works with both, but try a lookup and a manual once after setup.
 
 ## 7. Parts list in Home Assistant (optional)
 
@@ -117,29 +137,64 @@ actions:
 
 Put `http://<home-assistant>:8123/api/webhook/<your webhook id>` in **Parts webhook address**, then turn on **Parts list**. Treat the webhook ID like a password.
 
-## 8. Repair log
+## 8. Needed tools in Home Assistant (optional)
 
-With **Repair log** on, each person's jobs are saved on the Open WebUI server at `<DATA_DIR>/torke/repair-log-<user id>.json`. In the Docker image that's under `/app/backend/data`, so it's included when you back up Open WebUI's data volume. People only see their own log.
+TorKe always keeps its own needed tools list. To also see it in Home Assistant, on its own to-do list separate from parts, add a second automation with a different webhook ID. This one adds each tool to `todo.tools_needed`:
 
-## 9. The buttons and the confirmation prompt
+```yaml
+alias: TorKe needed tools
+triggers:
+  - trigger: webhook
+    webhook_id: "torke-tools-change-this-to-a-long-random-id"
+    allowed_methods: [POST]
+    local_only: true
+actions:
+  - repeat:
+      for_each: "{{ trigger.json.tools }}"
+      sequence:
+        - action: todo.add_item
+          target:
+            entity_id: todo.tools_needed
+          data:
+            item: "{{ repeat.item }}"
+            description: "{{ trigger.json.item }} {{ trigger.json.job }}"
+```
+
+Put its address in **Needed tools webhook address**, then turn on **Needed tools in Home Assistant**. Items you tick off in Home Assistant don't come off TorKe's list; tell TorKe you got the tool.
+
+## 9. What TorKe saves on the server
+
+Each person's files are kept in `<DATA_DIR>/torke/` on the Open WebUI server. In the Docker image that's under `/app/backend/data`, so they're included when you back up Open WebUI's data volume. People only see their own.
+
+- `repair-log-<user id>.json`: finished jobs, when **Repair log** is on.
+- `tools-owned-<user id>.json`: tools they told TorKe about, when they aren't saved to Homebox.
+- `tools-needed-<user id>.json`: the needed tools list.
+- `projects-<user id>.json`: the open project in each chat, so a restart doesn't forget it.
+
+Settings each person fills in (their tools box, YouTube sign-in) are saved with their Open WebUI account, so they enter them once.
+
+## 10. The buttons and the confirmation prompt
 
 The buttons on TorKe's cards send a message to the chat. Open WebUI shows these cards in a locked-down frame, so it asks you to confirm before a button sends anything. That's the safe default.
 
 To skip the confirmation, an admin can turn on **Settings > Interface > iframe Sandbox Allow Same Origin**. That gives every card in Open WebUI, from any tool, access to the page it's on, so leave it off unless you trust all your tools.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 - **The model doesn't use the buttons or tools:** check that the TorKe tool is turned on for the model, and try a base model that's stronger at tool calling.
 - **No pictures:** turn on **Pictures**, set the SearXNG address, and check that JSON output is on (section 4). Some sites block their images from showing elsewhere; TorKe then shows the placeholder.
 - **"Search failed" errors:** Open WebUI's server can't reach SearXNG or the site. Check the address from inside the Open WebUI container.
 - **YouTube sign-in failed:** the refresh token expired or was revoked. If the Google project is in Testing, see the 7-day catch in section 5.
+- **"No item matching" in Homebox:** check that the item's name contains the words people use for it, and that TorKe's Homebox account can see it.
+- **A manual won't read:** it may be scanned pictures with no text, or over 60 MB. Open WebUI includes the PDF reader TorKe uses (pypdf); if it's missing, install it in Open WebUI's environment.
 
 ## Things to verify on your setup
 
-TorKe 0.1.0 passed its offline tests but hasn't yet been tested in a live Open WebUI. These parts depend on outside services or Open WebUI internals, so try them once. They're marked `VERIFY` in the code.
+TorKe 0.2.0 passed its offline tests but hasn't yet been tested in a live Open WebUI. These parts depend on outside services or Open WebUI internals, so try them once. They're marked `VERIFY` in the code.
 
 - **iFixit:** the search endpoint and guide field names.
 - **Attached photos:** that a photo attached in the chat shows on the project card.
 - **Buttons:** the confirmation behavior of card buttons.
 - **Model file:** importing `torke-model.json`.
 - **Recall checks:** the CPSC manufacturer filter.
+- **Homebox:** that an API key works as a bearer token, and downloading a manual on Homebox versions before 0.26.
