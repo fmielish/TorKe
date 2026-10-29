@@ -46,6 +46,7 @@ In TorKe's settings (**Workspace > Tools > TorKe > gear**):
 | Manuals | Attached to the item, attachment type **Manual** |
 | Tools you own | Items tagged **Tools** |
 | Tools to get | Tagged **Tools** and **To get**, quantity 0. Also **Rent** when you'll rent or borrow it |
+| Rented or borrowed, in hand | Tagged **Tools** and **Rent**, until it goes back after the job; then archived |
 | Parts to get | Tagged **Parts** and **To get**, quantity 0, in the **Parts shelf** location, with Part number, Buy link, Price and Store fields |
 | Parts waiting to go in | Tagged **Parts**, on the **Parts shelf** |
 | Installed parts | Archived. Your parts history stays in Homebox |
@@ -55,7 +56,7 @@ Each tool or part to get has "For" in its description, such as "For 2012 Honda C
 
 ### How a job flows
 
-- **Tools:** the Tools card shows what you have and what's missing. A missing tool never stops the job: TorKe offers to rent or borrow it, a workaround with tools you have, or buying it. Missing tools go on your tools to get. A bought tool moves over to your tools; a returned rental is archived.
+- **Tools:** the Tools card shows what you have and what's missing. A missing tool never stops the job: TorKe offers to rent or borrow it, a workaround with tools you have, or buying it. Missing tools go on your tools to get. A bought tool moves over to your tools. A rental counts as yours from pickup (Got it) until the job's done; then TorKe asks whether it's gone back and archives it.
 - **Parts:** parts you still need go on your parts to get. When they arrive, they move to the Parts shelf. Once installed (old ones tossed), they're archived and the job goes in the item's repair log with the part numbers.
 - **Shopping:** "What do I need to buy?" shows tools to get and parts to get side by side, with buy or rental links. The two lists stay separate.
 

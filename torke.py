@@ -1279,10 +1279,13 @@ def _tools_html(title: str, subtitle: str, rows: list, job: str) -> str:
     have_html = "".join(row(r) for r in have) or '<li class="none">Nothing from this list yet.</li>'
     need_rows = []
     for r in need:
-        acts = ask_btn("I have it", f"I already have this one: {r['tool']}. Save it to my tools.")
-        if not r.get("rent"):
-            acts += ask_btn("Rent or borrow", f"I'll rent or borrow the {r['tool']} for this job. Add it to my "
-                                              f"tools to get as a rental.")
+        if r.get("rent"):
+            acts = (ask_btn("Got the rental", f"I got the rental {r['tool']} for this job.")
+                    + ask_btn("I own one", f"I already own this one: {r['tool']}. Save it to my tools."))
+        else:
+            acts = (ask_btn("I have it", f"I already have this one: {r['tool']}. Save it to my tools.")
+                    + ask_btn("Rent or borrow", f"I'll rent or borrow the {r['tool']} for this job. Add it to my "
+                                                f"tools to get as a rental."))
         need_rows.append(row(r, acts))
     new_need = [r["tool"] for r in need if not r.get("listed")]
     cta = ""
@@ -1340,8 +1343,8 @@ def _shopping_html(tools: list, parts: list, item: str) -> str:
         name, desc = e["name"], e.get("description", "")
         if e.get("rent"):
             tool_rows.append(row("need rent", name, ". ".join(x for x in ("Rent or borrow", desc) if x),
-                                 search(f"{name} rental near me"), "Find a rental", "Returned",
-                                 f"I returned the rented {name}. Take it off my tools to get."))
+                                 search(f"{name} rental near me"), "Find a rental", "Got it",
+                                 f"I got the rental {name} for this job."))
         else:
             link = e.get("fields", {}).get("Buy link", "")
             tool_rows.append(row("need", name, desc, link or search(f"{name} buy"), "Buy" if link else "Find it",
@@ -1628,8 +1631,9 @@ class Tools:
         """Tools and parts in Homebox, split by the To get tag."""
         v = self.valves
         tools, parts = hb.tagged(v.homebox_tools_tag), hb.tagged(v.homebox_parts_tag)
-        tg = v.homebox_to_get_tag
-        return {"owned": [t for t in tools if not self._is(t, tg)],
+        tg, rent = v.homebox_to_get_tag, v.homebox_rent_tag
+        return {"owned": [t for t in tools if not self._is(t, tg) and not self._is(t, rent)],
+                "rented": [t for t in tools if not self._is(t, tg) and self._is(t, rent)],
                 "tools_to_get": [t for t in tools if self._is(t, tg)],
                 "parts_to_get": [p for p in parts if self._is(p, tg)],
                 "on_shelf": [p for p in parts if not self._is(p, tg)]}
@@ -1719,11 +1723,12 @@ class Tools:
         n_sites = len(sites) + len(custom)
         uv = _user_valves(__user__, self.UserValves)
         hb = self._hb()
-        hbi = {"tools": 0, "parts": 0, "shelf": 0, "log": None, "err": ""}
+        hbi = {"tools": 0, "rented": 0, "parts": 0, "shelf": 0, "log": None, "err": ""}
         if hb:
             try:
                 lists = await _run(self._lists, hb)
                 hbi["tools"] = sum(1 for x in lists["tools_to_get"] if self._for(x, item))
+                hbi["rented"] = sum(1 for x in lists["rented"] if self._for(x, item))
                 hbi["parts"] = sum(1 for x in lists["parts_to_get"] if self._for(x, item))
                 hbi["shelf"] = sum(1 for x in lists["on_shelf"] if self._for(x, item))
                 ent = await _run(hb.find, item)
@@ -1753,7 +1758,8 @@ class Tools:
              "prompt": f"What parts will I need for {thing}{job}?"},
             {"icon": "tools", "name": "Tools you'll need",
              "badge": (f"{hbi['tools']} to get" if hbi["tools"] else
-                       ("Homebox" if hb else ("Your kit" if uv.has_starter_kit else "Ask me"))),
+                       (f"{hbi['rented']} rented" if hbi["rented"] else
+                        ("Homebox" if hb else ("Your kit" if uv.has_starter_kit else "Ask me")))),
              "prompt": f"What tools will I need for {thing}{job}? Check the manual if there is one, then show me "
                        "what I have and what I need."},
             {"icon": "safety", "name": "Safety warnings",
@@ -1773,7 +1779,8 @@ class Tools:
             f"Project card shown for {item}{job}. Picture: "
             f"{'user photo' if picture.get('kind') == 'user' else ('web photo from ' + picture['host'] if picture.get('kind') == 'web' else 'none')}. "
             f"Manual sites on: {', '.join(on) if on else 'none (web search links only)'}. "
-            + (f"Homebox: {hbi['tools']} tools to get, {hbi['parts']} parts to get, {hbi['shelf']} parts on the shelf "
+            + (f"Homebox: {hbi['tools']} tools to get, {hbi['rented']} rented tools out, {hbi['parts']} parts to get, "
+               f"{hbi['shelf']} parts on the shelf "
                f"for this item; repair log {'not found (item not in Homebox)' if hbi['log'] is None else str(hbi['log']) + ' entries'}. "
                if hb and not hbi["err"] else ("Homebox couldn't be read: " + hbi["err"] + ". " if hb else
                                               "Homebox isn't set up, so there are no saved tools, parts or repair log. "))
@@ -2239,7 +2246,7 @@ class Tools:
         job = str(job or p.get("problem", "")).strip()
         uv = _user_valves(__user__, self.UserValves)
         hb = self._hb()
-        lists, hb_err = {"owned": [], "tools_to_get": []}, ""
+        lists, hb_err = {"owned": [], "rented": [], "tools_to_get": []}, ""
         if hb:
             await _status(__event_emitter__, "Checking Homebox")
             try:
@@ -2257,6 +2264,8 @@ class Tools:
             if uv.has_multimeter:
                 out.append(f"- {MULTIMETER}")
             out += [f"- {e['name']}{', ' + e['where'] if e['where'] else ''} (Homebox)" for e in lists["owned"][:150]]
+            out += [f"- {e['name']} (rented or borrowed for {e['description'].removeprefix('For ') or 'a job'}; "
+                    f"return it after the job)" for e in lists["rented"][:30]]
             if len(out) == 1:
                 out.append("- Nothing listed. Ask what they have.")
             out.append(NOT_IN_KIT)
@@ -2280,13 +2289,16 @@ class Tools:
             if not e and hb and not hb_err and lookups < 8:
                 lookups += 1
                 try:
-                    e = next((x for x in await _run(hb.search, t, None, 10)
-                              if _tool_match(t, x["name"]) and not self._is(x, tg_tag)), None)
+                    e = next((x for x in await _run(hb.search, t, None, 10) if _tool_match(t, x["name"])
+                              and not self._is(x, tg_tag) and not self._is(x, rent_tag)), None)
                 except Exception as ex:
                     hb_err = str(ex)[:150]
             if e:
                 rows.append({"tool": t, "status": "have",
                              "note": f"{e['name']}{', ' + e['where'] if e['where'] else ''} (Homebox)"})
+                continue
+            if self._pick(lists["rented"], t):
+                rows.append({"tool": t, "status": "have", "note": "Rented or borrowed. Return it after the job"})
                 continue
             kit = _kit_covers(t, uv)
             if kit:
@@ -2341,11 +2353,13 @@ class Tools:
         try:
             lists = await _run(self._lists, hb)
             for t in tools:
-                tg = self._pick(lists["tools_to_get"], t)
+                tg = self._pick(lists["tools_to_get"], t) or self._pick(lists["rented"], t)
                 if tg:
                     await _run(self._edit, hb, tg, quantity=1, remove_tags=(v.homebox_to_get_tag, v.homebox_rent_tag),
                                location=location)
-                    lists["tools_to_get"].remove(tg)
+                    for lst in ("tools_to_get", "rented"):
+                        if tg in lists[lst]:
+                            lists[lst].remove(tg)
                     moved.append(t)
                 elif any(o["name"].strip().lower() == t.lower() for o in lists["owned"]):
                     skipped.append(t)
@@ -2358,7 +2372,7 @@ class Tools:
         await _status(__event_emitter__, "Tools saved", True)
         parts = []
         if moved:
-            parts.append(f"Moved from tools to get to your tools: {', '.join(moved)}.")
+            parts.append(f"Moved to your tools: {', '.join(moved)}.")
         if added:
             parts.append(f"Added to your tools in Homebox: {', '.join(added)}.")
         if skipped:
@@ -2487,9 +2501,8 @@ class Tools:
         __user__: Optional[dict] = None,
     ) -> str:
         """
-        Take tools off the tools to get without adding them to the user's tools: a rented tool was returned, a
-        borrowed one went back, or the job no longer needs it. Archives them in Homebox; nothing is deleted.
-        When they bought the tool, use save_my_tools instead.
+        Take tools off the tools to get when the job no longer needs them. Archives them in Homebox; nothing is
+        deleted. When they bought the tool, use save_my_tools; for rentals, rental_picked_up and rental_returned.
         :param tools: tool names as they appear on the list
         """
         hb, msg = self._need_hb()
@@ -2510,6 +2523,66 @@ class Tools:
             return f"Homebox couldn't be updated: {str(e)[:150]}"
         return (f"Took off your tools to get (archived in Homebox): {', '.join(done)}." if done
                 else "None of those are on your tools to get.")
+
+    async def rental_picked_up(
+        self,
+        tools: list[str],
+        __user__: Optional[dict] = None,
+    ) -> str:
+        """
+        The user picked up a tool they're renting or borrowing. It comes off the tools to get and counts as theirs
+        for this job. Don't ask about returning it until the job is over.
+        :param tools: tool names as they appear on the list
+        """
+        hb, msg = self._need_hb()
+        if not hb:
+            return msg
+        if self._cant_write():
+            return self._cant_write()
+        done = []
+        try:
+            lists = self._lists(hb)
+            for t in [str(x).strip() for x in (tools or []) if str(x).strip()][:20]:
+                e = self._pick(lists["tools_to_get"], t)
+                if e:
+                    self._edit(hb, e, quantity=1, add_tags=(self.valves.homebox_rent_tag,),
+                               remove_tags=(self.valves.homebox_to_get_tag,))
+                    lists["tools_to_get"].remove(e)
+                    done.append(e["name"])
+        except Exception as e:
+            return f"Homebox couldn't be updated: {str(e)[:150]}"
+        return (f"Got it: {', '.join(done)}, rented or borrowed for this job. TorKe will ask about returning it "
+                f"when the job is over." if done else "None of those are on your tools to get.")
+
+    async def rental_returned(
+        self,
+        tools: list[str],
+        __user__: Optional[dict] = None,
+    ) -> str:
+        """
+        A rented or borrowed tool went back after the job. Archives it in Homebox; nothing is deleted.
+        Only after the job is over and the user says it's been returned.
+        :param tools: tool names as they are in Homebox
+        """
+        hb, msg = self._need_hb()
+        if not hb:
+            return msg
+        if self._cant_write():
+            return self._cant_write()
+        done = []
+        try:
+            lists = self._lists(hb)
+            pool = lists["rented"] + [x for x in lists["tools_to_get"] if self._is(x, self.valves.homebox_rent_tag)]
+            for t in [str(x).strip() for x in (tools or []) if str(x).strip()][:20]:
+                e = self._pick(pool, t)
+                if e:
+                    self._edit(hb, e, quantity=0, archived=True)
+                    pool.remove(e)
+                    done.append(e["name"])
+        except Exception as e:
+            return f"Homebox couldn't be updated: {str(e)[:150]}"
+        return (f"Returned and archived in Homebox: {', '.join(done)}." if done
+                else "None of those are rented or borrowed.")
 
     # ------------------------------------------------------------------ 5. safety
 
@@ -2828,8 +2901,12 @@ class Tools:
             + ", ".join(f"{k}: {x}" for k, x in e.get("fields", {}).items()) for e in parts]
         if shelf:
             lines.append("Already on the parts shelf: " + ", ".join(e["name"] for e in shelf[:20]))
+        rented = [e for e in lists["rented"] if self._for(e, item)]
+        if rented:
+            lines.append("Rented or borrowed, out now (ask about returning only when the job is over): "
+                         + ", ".join(e["name"] for e in rented[:20]))
         context = ("Shopping list card shown.\n" + "\n".join(lines) + "\nDon't repeat it. Bought tool: save_my_tools. "
-                   "Returned rental: remove_needed_tools. Parts that arrived: parts_arrived. Installed parts: "
+                   "Picked up a rental: rental_picked_up. Parts that arrived: parts_arrived. Installed parts: "
                    "use_parts, then log_repair.")
         return _card(_shopping_html(tools, parts, item), context)
 
@@ -2872,7 +2949,16 @@ class Tools:
             await _run(hb.add_maintenance, ent["id"], body)
         except Exception as e:
             return f"Homebox couldn't be updated: {str(e)[:150]}"
-        return f"Logged on {ent['name']} in Homebox: {body['name']} ({body['completedDate']})."
+        msg = f"Logged on {ent['name']} in Homebox: {body['name']} ({body['completedDate']})."
+        try:
+            out = [x["name"] for x in (await _run(self._lists, hb))["rented"]
+                   if self._for(x, str(item)) or self._for(x, ent["name"])]
+        except Exception:
+            out = []
+        if out:
+            msg += (f" Rented or borrowed for this job and still out: {', '.join(out)}. The job's over, so ask "
+                    "whether they've gone back; when they have, call rental_returned.")
+        return msg
 
     async def repair_history(
         self,

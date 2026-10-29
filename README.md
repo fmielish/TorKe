@@ -42,6 +42,7 @@ The [setup guide](docs/SETUP.md) covers Homebox, every setting, SearXNG, YouTube
 | Manuals | Attached to the item (type Manual) |
 | Tools you own | Tagged Tools |
 | Tools to get | Tagged Tools and To get, plus Rent for ones you'll rent or borrow |
+| Rented or borrowed, in hand | Tagged Tools and Rent, until it goes back after the job |
 | Parts to get | Tagged Parts and To get, with part number, buy link and price |
 | Parts waiting to go in | On the Parts shelf |
 | Installed parts | Archived, so your parts history stays |
@@ -57,7 +58,7 @@ TorKe adds items, changes only items tagged Tools or Parts, and adds repair log 
 
 When there's a manual for the job (a PDF attached to the item in Homebox or in the chat, or an iFixit guide), TorKe reads the tools from it and compares them with what you own.
 
-**A missing tool doesn't stop the job.** For each one, TorKe offers to rent or borrow it (many auto parts stores lend specialty tools), a workaround with tools you have, or buying it. Missing tools go on your tools to get. A tool you buy moves to your tools; a rental is archived when you return it.
+**A missing tool doesn't stop the job.** For each one, TorKe offers to rent or borrow it (many auto parts stores lend specialty tools), a workaround with tools you have, or buying it. Missing tools go on your tools to get. A tool you buy moves to your tools. A rental counts as yours from when you pick it up until the job's done; then TorKe asks whether it's gone back and archives it.
 
 To add tools you own, tell TorKe ("I bought a torque wrench"), send a photo of a tool, a kit's contents list or a receipt, or tap **I have it**. TorKe never assumes a torque wrench, jack stands or specialty tools.
 
@@ -70,8 +71,8 @@ To add tools you own, tell TorKe ("I bought a torque wrench"), send a photo of a
 Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side by side. The two lists stay separate.
 
 - **Buy / Find it / Find a rental** opens the store page, or a search. TorKe never buys anything.
-- **Got it** on a tool moves it to your tools. On a part, it goes to the Parts shelf until it's installed; then it's archived and the job goes in the repair log.
-- **Returned** on a rental takes it off your list.
+- **Got it** on a tool moves it to your tools. On a rental, it marks it picked up for the job. On a part, it goes to the Parts shelf until it's installed; then it's archived and the job goes in the repair log.
+- **Returning rentals** comes up when the job is over, not before.
 
 ## Manual sites
 

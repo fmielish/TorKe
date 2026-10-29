@@ -488,7 +488,7 @@ def test_tools_to_get_flow(hbtool):
     run(tool.save_needed_tools(["floor jack"], "front brakes", "2012 Honda Civic", rent=True, __user__=USER))
     assert "floor jack (rent or borrow)" in run(tool.needed_tools_list("Honda Civic", __user__=USER))
     out = run(tool.save_my_tools(["Jack stands, 3 ton"], __user__=USER))
-    assert "Moved from tools to get to your tools: Jack stands, 3 ton" in out
+    assert "Moved to your tools: Jack stands, 3 ton" in out
     assert hb.tag_names(jack) == ["Tools"] and jack["quantity"] == 1
     assert "archived in Homebox): floor jack" in run(tool.remove_needed_tools(["floor jack"], __user__=USER))
     assert hb.by_name("floor jack")["archived"]
@@ -543,8 +543,8 @@ def test_shopping_card_rentals_and_escaping(tool, monkeypatch):
     run(tool.save_needed_parts([{"name": "<img src=x onerror=alert(1)>", "link": 'https://x.example/"onclick=1'}],
                                __user__=USER))
     html, _ = body(run(tool.shopping_list(__user__=USER)))
-    assert "Find a rental" in html and "Returned" in html and "Rent or borrow. For 2012 Honda Civic" in html
-    assert "I returned the rented floor jack. Take it off my tools to get." in html
+    assert "Find a rental" in html and "Rent or borrow. For 2012 Honda Civic" in html
+    assert "I got the rental floor jack for this job." in html and "Returned" not in html
     assert "<img src=x" not in html and '"onclick=1' not in html
     html, _ = body(run(tool.shopping_list("Bosch dishwasher", __user__=USER)))
     assert html.count("Nothing to get.") == 2
@@ -608,3 +608,25 @@ def test_open_project_survives_restart(tool):
                           __user__=USER, __chat_id__="c42"))
     torke._PROJECTS.clear()  # what a restart does
     assert "Bosch SHE3AR75UC" in run(tool.find_manuals(__user__=USER, __chat_id__="c42"))
+
+
+def test_rental_lifecycle(hbtool):
+    tool, hb = hbtool
+    run(tool.save_needed_tools(["floor jack"], "front brakes", "2012 Honda Civic", rent=True, __user__=USER))
+    html, _ = body(run(tool.check_tools(["floor jack"], "front brakes", "2012 Honda Civic", __user__=USER)))
+    assert "Got the rental" in html and "I own one" in html and "Rent or borrow</button>" not in html
+    assert "floor jack" in run(tool.rental_picked_up(["floor jack"], __user__=USER))
+    jack = hb.by_name("floor jack")
+    assert hb.tag_names(jack) == ["Rent", "Tools"] and jack["quantity"] == 1
+    _, ctx = body(run(tool.check_tools(["floor jack"], "front brakes", "2012 Honda Civic", __user__=USER)))
+    assert "floor jack: have (Rented or borrowed. Return it after the job)" in ctx
+    html, ctx = body(run(tool.shopping_list(__user__=USER)))
+    assert "floor jack" not in html and "ask about returning only when the job is over" in ctx
+    card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
+    assert "1 rented" in card
+    out = run(tool.log_repair("2012 Honda Civic", "Front brakes", "Pads", __user__=USER))
+    assert "still out: floor jack" in out and "rental_returned" in out
+    assert "Returned and archived in Homebox: floor jack" in run(tool.rental_returned(["floor jack"], __user__=USER))
+    assert jack["archived"]
+    assert "still out" not in run(tool.log_repair("2012 Honda Civic", "Rotors", "x", __user__=USER))
+    assert "Already in Homebox" in run(tool.save_my_tools(["Torque wrench 3/8"], __user__=USER))
