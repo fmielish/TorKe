@@ -100,6 +100,7 @@ All off by default:
 - **Pictures, when turned on,** load from the site they came from, so that site sees the request.
 - **Searches** go through your own SearXNG if you set one. Otherwise TorKe gives you links to open yourself.
 - **Your tools, parts and repair log** stay in your own Homebox. TorKe keeps only the open project for each chat on your Open WebUI server.
+- **The whole-house switches** (upkeep, spares, VIN decoding, shop work and more) are off until you turn them on. VIN decoding and recall checks send the VIN or the make and model to NHTSA or CPSC, and the room-message switch sends text to your own Home Assistant. [HOUSE-SETUP.md](docs/HOUSE-SETUP.md) has the details.
 
 ## Safety
 
@@ -107,7 +108,7 @@ TorKe points you to the manual and tells you when a job is for a professional, b
 
 ## Status
 
-Version 0.4.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.5.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 

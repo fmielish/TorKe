@@ -85,6 +85,7 @@ Every switch starts off.
 | Custom manual sites | Other sites TorKe may search and read | Only sites whose terms allow it |
 | Recall checks | US recalls (NHTSA and CPSC) in Safety warnings | Nothing |
 | Parts in Home Assistant, Tools to get in Home Assistant | Copies of the lists on Home Assistant to-do lists | Webhooks (section 8) |
+| Scheduled upkeep, Critical spares and consumables, VIN decoding and complaints, Save facts on owned items, Shop work, Hand-offs to an outside assistant, Voice and room screens | The whole-house switches. Each is off until you turn it on. | See [HOUSE-SETUP.md](HOUSE-SETUP.md) |
 | YouTube playlist | Each person can add videos to their own playlist | Each person's Google sign-in (section 7) |
 | Most results | Results per search, 3 to 10 | |
 
@@ -197,7 +198,7 @@ To skip the confirmation, an admin can turn on **Settings > Interface > iframe S
 
 ## Things to verify on your setup
 
-TorKe 0.4.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
+TorKe 0.5.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
 
 - **Homebox updates:** that changing an item (moving a tool to "owned", putting a part on the shelf, archiving) keeps its other details. TorKe sends back everything it read, but Homebox's notes don't spell out how its update works.
 - **Homebox sign-in:** that an API key works as a bearer token.

@@ -393,6 +393,9 @@ class FakeHomebox:
                                "tagIds": body.get(tag_key, []), "loc": body.get(loc_key), "fields": []}
             self.created.append(body)
             return {"id": eid}
+        if base == "/maintenance":  # every scheduled, not yet done entry
+            return [dict(m, itemName=self.items[e]["name"], itemID=e) for e, ms in self.maint.items() for m in ms
+                    if m.get("scheduledDate") and not m.get("completedDate")]
         parts = base.split("/")
         eid = parts[2] if len(parts) > 2 else ""
         if len(parts) == 3 and method == "GET":

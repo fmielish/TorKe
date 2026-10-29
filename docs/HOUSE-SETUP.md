@@ -1,54 +1,106 @@
-# Running TorKe the way the house does
+# Running TorKe as a whole-house assistant
 
-TorKe works on its own for anyone: Open WebUI plus Homebox, with everything else off. This guide is for people who want the **whole-house setup**: TorKe keeping up with scheduled upkeep, recalls, receipts and shop work, and talking to the screens around the home.
+TorKe works on its own for anyone: Open WebUI plus Homebox, with everything else off. This guide is for people who want more: upkeep schedules, spares that never run out, recalls checked every month, work a shop did on the car, and messages on the screen in the room you're in.
 
-Nothing here is on by default. Each house feature is a switch in TorKe's settings. Leave a switch off and TorKe behaves exactly as the main [setup guide](SETUP.md) describes.
+Every one of these is a switch in TorKe's settings, and **every switch starts off**. Leave one off and TorKe behaves exactly as the main [setup guide](SETUP.md) describes. Turn on only what you want.
 
-> **Status:** this is the plan. The switches below are **not built yet**; the code on the `draft` branch has none of them. Each row says what it will do so the code and this guide stay in step.
+Version 0.5.0 builds all of this and passes its offline tests against a stand-in Homebox. It hasn't been tried against a real Homebox or Home Assistant yet; the list at the end says what to check first.
 
 ## What you need to run
 
-| App | Needed for | Required? |
+| App | What it's for | Needed? |
 |---|---|---|
 | **Open WebUI** | TorKe itself | Always |
-| **Homebox** | Tools, parts, manuals, repair log, saved facts, attached invoices | Always, for anything TorKe keeps |
-| **Home Assistant** | Room screens, voice, scheduled upkeep reminders | For the house switches that talk to the home |
-| **Cybertron and Signal** | Hand-offs: weekly what's due, monthly recall check, receipts, the device list, shop invoice photos | Only for the Cybertron switches |
-| SearXNG | Pictures and real search results | Optional (see SETUP.md) |
+| **Homebox** | Everything TorKe keeps: tools, parts, manuals, repair log, upkeep, spares, invoices | Always, for any of the switches below except VIN decoding and voice |
+| **Home Assistant** | Speaking and showing messages in rooms; optional copies of your to-get lists | Only for **Voice and room screens** |
+| **An outside assistant** | Anything else that talks to TorKe for you: a chat bot, a home automation, a program that reads photos you send it. It asks TorKe questions and hands it results. | Only for **Hand-offs** and for shop invoices that arrive as photos outside Open WebUI |
+| SearXNG | Pictures and real search results | Optional (see [SETUP.md](SETUP.md)) |
 
-If you run these as containers, each needs to be reachable from Open WebUI's container by address (for example `http://homebox:7745`). Test that from inside the Open WebUI container before blaming TorKe.
+TorKe also reaches out to NHTSA (vehicles) and CPSC (household products) for recalls and complaints. Both are free US government services and need only an internet connection.
 
-## Keeping things in Homebox
+If these run as containers, each one must be reachable from Open WebUI's container by its address, for example `http://homebox:7745`. Test that from inside the Open WebUI container before blaming TorKe.
 
-The house uses the same Homebox layout as everyone else: **To get**, **Rent** and the **Parts shelf**. The Home Assistant parts list is no longer the house's list. It stays available as the optional copy described in section 8 of SETUP.md.
+## The switches
 
-## The house switches
+Admins find them in **Workspace > Tools > TorKe > gear**. Each saving switch also needs **Let TorKe update Homebox** (setup guide, section 4).
 
-All off by default. "Public" means what someone who never touches the switch gets.
-
-| Switch | What it does when on | Needs |
+| Switch | What it does | Also needs |
 |---|---|---|
-| **Cybertron hand-offs** | Lets Cybertron ask TorKe for the weekly what's due and the monthly recall check, and hand over receipts, the device list and shop invoices | Cybertron, Signal |
-| **Scheduled upkeep** | Keeps upkeep schedules and "next oil change at" targets on each item and tells you when something is due | Homebox |
-| **Save facts on owned items** | Saves facts about an item you own (model, part numbers, capacities) onto the item in Homebox, and attaches invoices | Homebox, and permission to add attachments beyond Tools and Parts |
-| **Critical spares and consumables** | Tracks the spares and consumables you never want to run out of, and flags them when low | Homebox |
-| **Voice to the nearest room screen** | Speaks answers, and shows the project card, on the screen nearest you | Home Assistant |
-| **VIN decoding and NHTSA complaints** | Decodes a vehicle's VIN and adds NHTSA complaint data to its safety warnings | Nothing beyond internet access |
-| **Shop work** | Turns a photo of a shop invoice into a repair record: oil changes, tires, glass and any other automotive work. Tracks the warranty on the work and the cost history per vehicle, and attaches the invoice to the vehicle | Homebox, Cybertron, Signal |
+| **Scheduled upkeep** | Saves a due date (a scheduled entry in the item's maintenance log) or a target like "next oil change at 105,000", repeats noted in words, and answers "what's due?" with dates, overdue items and how far each target is from the last mileage or hours in the repair log | Mileage targets need *Save facts on owned items* |
+| **Critical spares and consumables** | Tracks things you never want to run out of (filters, bulbs, belts) with how many you have and the least you want. Using one takes it off the count and says when it's below the minimum, then offers to add it to parts to get. Spares never get archived when a job closes out | |
+| **VIN decoding and complaints** | Turns a VIN into year, make, model and engine, and adds NHTSA owner complaints to a vehicle's safety warnings. The VIN is sent to NHTSA | Saving the result on the vehicle needs *Save facts on owned items* |
+| **Save facts on owned items** | Lets TorKe write facts (model number, capacities, filter size, VIN, upkeep targets) on **any** item you own in Homebox, and attach invoices to it, not only items tagged Tools or Parts. It still never deletes anything and still asks first | |
+| **Shop work** | Records work a shop did: a repair log entry with the shop, cost, mileage and warranty, plus the invoice attached to the item. Shows the cost history and warranties for each vehicle or item | The invoice attachment needs *Save facts on owned items* |
+| **Hand-offs to an outside assistant** | Lets an outside assistant ask for the weekly what's due, a monthly recall check and the device list | The parts of the weekly summary follow their own switches (upkeep, spares) |
+| **Voice and room screens** | Sends a short message to Home Assistant to be spoken or shown on the screen nearest you | The webhook address (below) |
 
-### About shop work
+### What it saves, so you can find it in Homebox
 
-Today neither TorKe nor the old house Fix-it records shop work, and Cybertron's photo triage would file a shop invoice as a purchase receipt. When this is built, Cybertron needs to send invoices to TorKe instead. The photo arrives on Signal, so that route needs Cybertron and Signal running.
+- **Upkeep:** scheduled entries in the item's maintenance log. A mileage target is a field named like `Next oil change at`.
+- **Spares:** items tagged **Parts** and **Critical spare** (the tag name can be changed) on the Parts shelf, with the quantity as the count and a `Minimum` field.
+- **Facts:** fields on the item, such as `Year`, `Make`, `Model`, `VIN`.
+- **Shop work:** a maintenance log entry whose description holds the mileage, `Done by`, notes and warranty lines, with the cost in the entry's cost field. The invoice is attached with the type **Receipt**.
 
-Attaching the invoice means TorKe may add an attachment to a vehicle, which goes beyond its usual rule of changing only items tagged **Tools** or **Parts**. That permission will be its own switch, and TorKe will still never delete anything.
+## Shop work, step by step
 
-## Turning on the house setup, in plain steps
+1. You send a photo of the invoice to the outside assistant, or attach it to a chat with TorKe.
+2. Something has to read the photo. TorKe doesn't read pictures itself; the model behind it (or the outside assistant) does, and it needs vision to do so.
+3. TorKe shows what it read: the shop, date, work, cost, mileage and any warranty. You say yes.
+4. TorKe adds the repair log entry and, if *Save facts on owned items* is on, attaches the invoice to the vehicle.
+5. Later, ask for the vehicle's **cost history** or its **warranties**. A warranty counts as over once its date has passed or the last mileage in the log reaches its mileage limit.
+
+Anything automotive works: oil changes, tires, glass and anything else. It's also fine for appliances and other items.
+
+If your outside assistant files every photo as a purchase receipt, point shop invoices at TorKe instead; otherwise they'll be treated as shopping.
+
+## Turn it on
 
 1. Finish the main [setup guide](SETUP.md) first, including Homebox and **Let TorKe update Homebox**.
-2. Make sure Home Assistant is running and Open WebUI can reach it.
-3. Turn on only the house switches you want, one at a time, and try each before the next.
-4. For the Cybertron switches, confirm Cybertron and Signal are running and Cybertron can reach Open WebUI.
+2. Turn on the switches you want, one at a time, and try each before the next.
+3. For **Voice and room screens**, add the webhook below, paste its address into **Room screen webhook address** and turn the switch on.
+4. For **Hand-offs**, set up your outside assistant to ask the TorKe model in Open WebUI. How it does that depends on that assistant; TorKe just answers.
 
-## Retiring the old house Fix-it
+## Voice and room screens in Home Assistant
 
-Fix-it stays until TorKe has passed its live test (the checklist at the end of SETUP.md). After that the house moves to TorKe and Fix-it is retired.
+TorKe sends `message`, `room` (a name, or empty for "nearest the person") and `speak` to a webhook. Home Assistant decides what "nearest" means, usually from presence sensors you already have, and which speaker or screen to use. This example is a starting point: the entity names are placeholders, so change them to yours, and note that Home Assistant renames things from time to time.
+
+```yaml
+alias: TorKe room message
+triggers:
+  - trigger: webhook
+    webhook_id: "torke-room-change-this-to-a-long-random-id"
+    allowed_methods: [POST]
+    local_only: true
+actions:
+  - action: persistent_notification.create
+    data:
+      title: TorKe
+      message: "{{ trigger.json.message }}"
+  - if: "{{ trigger.json.speak }}"
+    then:
+      - action: tts.speak
+        target:
+          entity_id: tts.your_text_to_speech
+        data:
+          media_player_entity_id: >-
+            {{ 'media_player.' ~ (trigger.json.room | lower | replace(' ', '_'))
+               if trigger.json.room else 'media_player.kitchen' }}
+          message: "{{ trigger.json.message }}"
+```
+
+Put the address (`http://<home-assistant>:8123/api/webhook/<id>`) in TorKe's settings and treat the id like a password.
+
+## Keeping lists in Homebox
+
+The house uses the same Homebox layout as everyone else: **To get**, **Rent** and the **Parts shelf**. The Home Assistant to-do lists are an optional copy only (section 8 of the setup guide).
+
+## Check these on your setup
+
+They're marked `VERIFY` in the code.
+
+- **Scheduled upkeep:** that Homebox lists scheduled entries across all items at `/maintenance?status=scheduled`, and that an entry with only a scheduled date saves.
+- **Invoice upload:** that Homebox accepts the attachment (multipart fields `file`, `type`, `name`) and shows it with the type Receipt.
+- **Facts and targets:** that saving a field keeps the item's other details (the same check as for tools and parts).
+- **Device list:** that Homebox returns the brand, model number and serial number on each item.
+- **Room messages:** that your Home Assistant automation speaks and shows them where you expect.
+- **NHTSA:** that the VIN decoder and complaints answers look right for your vehicles.
