@@ -1,7 +1,8 @@
 """Render TorKe's cards to PNG for the README (needs: pip install playwright pillow; playwright install chromium).
 
 Usage, from the repo root:  python scripts/render_preview.py [output_dir]
-Everything runs offline: the "photo" is a drawing made here, and no network calls are made.
+Everything runs offline: the "photo" is a drawing made here, Homebox is the test suite's in-memory
+stand-in, and no network calls are made. Needs pytest installed (the tests module imports it).
 """
 
 import asyncio
@@ -42,32 +43,37 @@ def stand_in_photo() -> str:
 async def build_cards(tmp: Path) -> dict:
     import os
 
+    sys.path.insert(0, str(ROOT / "tests"))
+    from test_torke import FakeHomebox  # the test suite's in-memory Homebox
+
     os.environ["DATA_DIR"] = str(tmp)
+    hb = FakeHomebox(new=True)
+    torke._json, torke._fetch_bytes = hb.json, hb.fetch
+    hb.maint["e2"] = [{"name": "Cleaned the filter", "description": "Standing water, filter clogged.",
+                       "completedDate": "2026-03-14"}]
     t = torke.Tools()
     t.valves.site_ifixit = True
     t.valves.site_manualslib = True
-    t.valves.repair_log = True
+    t.valves.homebox_lookup, t.valves.homebox_url, t.valves.homebox_write = True, "http://homebox:7745", True
+    t.valves.homebox_tools_location = "Garage"
     user = {"id": "preview", "valves": torke.Tools.UserValves()}
-    await t.log_repair("Bosch dishwasher SHE3AR75UC", "Cleaned the filter", "Standing water, filter clogged.",
-                       "2026-03-14", __user__=user)
     msgs = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": stand_in_photo()}}]}]
     photo, _ = await t.open_project("Bosch dishwasher SHE3AR75UC", "Won't drain, error E24", "appliance",
                                     "Bosch", "SHE3AR75UC", __user__=user, __messages__=msgs)
-    t.valves.repair_log = False
     car, _ = await t.open_project("2012 Honda Civic", "Front brake pads and rotors", "vehicle", "Honda",
                                   "Civic", "2012", __user__=user)
-    owner = {"id": "preview", "valves": torke.Tools.UserValves(my_tools="3/8 in drive torque wrench")}
-    await t.save_needed_tools(["jack stands"], "Front brake pads and rotors", "2012 Honda Civic", __user__=owner)
+    job, civic = "Front brake pads and rotors", "2012 Honda Civic"
+    await t.save_needed_tools(["jack stands"], job, civic, __user__=user)
+    await t.save_needed_tools(["floor jack"], job, civic, rent=True, __user__=user)
     tools, _ = await t.check_tools(["torque wrench", "14 mm socket", "17 mm socket", "C-clamp or caliper piston tool",
-                                    "jack stands", "floor jack", "wire brush"], "Front brake pads and rotors",
-                                   "2012 Honda Civic", __user__=owner)
+                                    "jack stands", "floor jack", "wire brush"], job, civic, __user__=user)
     await t.save_needed_parts([
         {"name": "Front brake pads, ceramic", "part_number": "D1089", "link": "https://www.example.com/pads",
          "price": "$42.99", "store": "Parts store"},
         {"name": "Front rotors", "qty": 2, "price": "$38.50"},
-        {"name": "Brake fluid, DOT 3"}], "Front brake pads and rotors", "2012 Honda Civic", __user__=owner)
-    await t.save_needed_parts(["Drain pump"], "Won't drain, error E24", "Bosch dishwasher SHE3AR75UC", __user__=owner)
-    shop, _ = await t.shopping_list(__user__=owner)
+        {"name": "Brake fluid, DOT 3"}], job, civic, __user__=user)
+    await t.save_needed_parts(["Drain pump"], "Won't drain, error E24", "Bosch dishwasher SHE3AR75UC", __user__=user)
+    shop, _ = await t.shopping_list(__user__=user)
     return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode(),
             "card-shopping": shop.body.decode()}
 

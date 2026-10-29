@@ -181,14 +181,6 @@ def test_ifixit_guide(tool, monkeypatch):
 
 # ---------------------------------------------------------------- tools, safety, parts, log
 
-def test_tools_baseline_and_user_list(tool):
-    out = run(tool.check_tools(__user__=USER))
-    assert "100-piece socket set" in out and "multimeter" in out and "torque wrench" in out.lower()
-    bare = {"id": "u2", "valves": torke.Tools.UserValves(has_starter_kit=False, has_socket_set=False,
-                                                          has_multimeter=False, my_tools="")}
-    assert "Nothing listed" in run(tool.check_tools([], __user__=bare))
-
-
 def test_safety_with_recalls(tool, monkeypatch):
     monkeypatch.setattr(torke, "_json", lambda url, **kw: {"results": [
         {"NHTSACampaignNumber": "12V000000", "Component": "BRAKES", "Summary": "Pads may wear", "Remedy": "Replace"}]})
@@ -210,20 +202,6 @@ def test_parts_links_and_no_brand_note(tool):
     out = run(tool.find_parts(["drain pump W10348269"], "Whirlpool dishwasher", __user__=USER))
     assert "amazon.com/s?k=drain+pump+W10348269" in out
     assert "quality brand" not in out and "save_needed_parts" in out
-
-
-def test_repair_log(tool):
-    assert "repair log is off" in run(tool.repair_history("Civic", __user__=USER))
-    tool.valves.repair_log = True
-    run(tool.log_repair("2012 Honda Civic", "Timing belt", "Belt, tensioner, water pump at 104k mi",
-                        "2026-10-01", "$310", __user__=USER))
-    run(tool.log_repair("Bosch dishwasher", "Cleaned filter", "Drained again", __user__=USER))
-    out = run(tool.repair_history("honda civic", __user__=USER))
-    assert "Timing belt" in out and "dishwasher" not in out
-    other = {"id": "someone-else", "valves": torke.Tools.UserValves()}
-    assert "No repairs logged" in run(tool.repair_history("civic", __user__=other))
-    html, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
-    assert "1 entry" in html
 
 
 def test_buttons_use_open_project(tool):
@@ -283,19 +261,6 @@ def test_playlist_success(tool, monkeypatch):
     assert posted[0][1]["snippet"]["resourceId"]["videoId"] == "abc123XYZ"
 
 
-def test_parts_list_webhook(tool, monkeypatch):
-    sent = []
-    monkeypatch.setattr(torke, "_http", lambda url, **kw: sent.append(json.loads(kw["data"])) or "")
-    out = run(tool.save_needed_parts(["drain pump"], "won't drain", "Whirlpool dishwasher", __user__=USER))
-    assert "Added to your parts list: drain pump" in out and not sent  # kept by TorKe; HA off by default
-    tool.valves.parts_list = True
-    tool.valves.parts_webhook_url = "http://ha:8123/api/webhook/x"
-    out = run(tool.save_needed_parts([{"name": "clamp", "link": "javascript:x", "qty": 2, "part_number": "W1"}],
-                                     "won't drain", "Whirlpool dishwasher", __user__=USER))
-    assert "Sent to Home Assistant" in out
-    assert sent[0]["parts"] == [{"name": "clamp (W1)", "link": "", "store": "", "price": "", "qty": 2}]
-
-
 def test_photo_read_from_upload_record(tmp_path):
     png = tmp_path / "photo.png"
     png.write_bytes(base64.b64decode(PNG_1PX.split(",", 1)[1]))
@@ -311,7 +276,7 @@ def test_missing_user_and_null_args(tool):
     assert "Nothing listed" not in run(tool.check_tools(None))
 
 
-# ---------------------------------------------------------------- tool lists, Homebox and manuals (v0.2)
+# ---------------------------------------------------------------- Homebox: tools, parts, manuals, repair log
 
 import urllib.error  # noqa: E402
 import urllib.parse  # noqa: E402
@@ -351,21 +316,49 @@ DISHWASHER_PDF = make_pdf([
 
 
 class FakeHomebox:
-    """Enough of Homebox's API for TorKe: new (0.26+, entities and tags) or old (items and labels)."""
+    """A small in-memory Homebox: new API (0.26+, entities and tags) or old (items and labels)."""
 
     def __init__(self, new=True):
-        self.new, self.posts = new, []
-        where = "parent" if new else "location"
-        self.entities = [
-            {"id": "e1", "name": "Torque wrench 3/8", "quantity": 1, where: {"name": "Pegboard"},
-             "tags": [{"name": "Tools"}]},
-            {"id": "e2", "name": "Bosch dishwasher SHE3AR75UC", "quantity": 1, "tags": []},
-        ]
+        self.new, self.calls, self.created, self.puts, self.n = new, [], [], [], 100
+        self.tags = {"t1": "Tools"}
+        self.locs = {"L1": "Shelf", "L2": "Garage", "L3": "Parts shelf"}
+        self.items, self.maint = {}, {}
+        self.add("e1", "Torque wrench 3/8", ["Tools"], "L2")
+        self.add("e2", "Bosch dishwasher SHE3AR75UC", [], "L1")
+        self.add("e3", "2012 Honda Civic", [], "L2")
+        self.add("e4", "Paint brushes", [], "L1")  # not tagged Tools or Parts: TorKe must never change it
         self.atts = {"e2": [{"id": "a1", "type": "manual", "title": "SHE3AR75UC manual.pdf",
                              "mimeType": "application/pdf"}]}
 
+    def tag_named(self, name):
+        for k, v in self.tags.items():
+            if v.lower() == name.lower():
+                return k
+        k = f"t{len(self.tags) + 1}"
+        self.tags[k] = name
+        return k
+
+    def add(self, eid, name, tags, loc):
+        self.items[eid] = {"id": eid, "name": name, "quantity": 1, "description": "", "archived": False,
+                           "tagIds": [self.tag_named(t) for t in tags], "loc": loc, "fields": [],
+                           "purchasePrice": 12.5}
+
+    def by_name(self, name):
+        return next(i for i in self.items.values() if i["name"].lower() == name.lower())
+
+    def tag_names(self, it):
+        return sorted(self.tags[t] for t in it["tagIds"])
+
+    def view(self, it):
+        loc = {"id": it["loc"], "name": self.locs.get(it["loc"], "")}
+        tags = [{"id": t, "name": self.tags[t]} for t in it["tagIds"]]
+        d = {k: v for k, v in it.items() if k not in ("tagIds", "loc")}
+        d.update({"parent": loc, "tags": tags} if self.new else {"location": loc, "labels": tags})
+        return d
+
     def json(self, url, method="GET", data=None, headers=None, **kw):
         path = url.split("/api/v1", 1)[1]
+        self.calls.append((method, path))
         if path == "/users/login":
             return {"token": "tok"}
         assert headers["Authorization"] in ("Bearer tok", "Bearer hb_key")
@@ -374,44 +367,187 @@ class FakeHomebox:
         if (self.new and (base.startswith("/items") or base in ("/labels", "/locations"))) or \
                 (not self.new and (base.startswith("/entities") or base == "/tags")):
             raise urllib.error.HTTPError(url, 404, "not found", {}, None)
-        coll = "/entities" if self.new else "/items"
-        if method == "POST":
-            body = json.loads(data)
-            self.posts.append((base, body))
-            return {"id": "new1", **body}
-        if base in ("/tags", "/labels"):
-            return [{"id": "t1", "name": "Tools"}]
+        coll, tag_word = ("/entities", "tags") if self.new else ("/items", "labels")
+        loc_key, tag_key = ("parentId", "tagIds") if self.new else ("locationId", "labelIds")
+        body = json.loads(data) if data else None
+        if base == "/" + tag_word:
+            if method == "POST":
+                return {"id": self.tag_named(body["name"]), "name": body["name"]}
+            return [{"id": k, "name": v} for k, v in self.tags.items()]
         if base == "/locations" or q.get("isLocation"):
-            return [{"id": "L1", "name": "Shelf"}, {"id": "L2", "name": "Garage"}]
-        if base == coll:
-            rows = self.entities
-            if q.get("tags" if self.new else "labels"):
-                rows = [e for e in rows if e["tags"]]
+            return [{"id": k, "name": v} for k, v in self.locs.items()]
+        if base == coll and method == "GET":
+            rows = [i for i in self.items.values() if not i["archived"]]
+            if q.get(tag_word):
+                rows = [i for i in rows if set(q[tag_word]) & set(i["tagIds"])]
             term = (q.get("q") or [""])[0].lower()
             if term:
-                rows = [e for e in rows if any(w in e["name"].lower() for w in term.split())]
-            return {"items": rows, "total": len(rows)}
-        if base.startswith(coll + "/"):
-            eid = base.split("/")[2]
-            return {"id": eid, "attachments": self.atts.get(eid, [])}
-        raise AssertionError(path)
+                rows = [i for i in rows if any(w in i["name"].lower() for w in term.split())]
+            return {"items": [self.view(i) for i in rows], "total": len(rows)}
+        if base == coll and method == "POST":
+            assert set(body) <= {"name", "description", "quantity", loc_key, tag_key}, body
+            eid = f"n{self.n}"
+            self.n += 1
+            self.items[eid] = {"id": eid, "name": body["name"], "quantity": body.get("quantity", 1),
+                               "description": body.get("description", ""), "archived": False,
+                               "tagIds": body.get(tag_key, []), "loc": body.get(loc_key), "fields": []}
+            self.created.append(body)
+            return {"id": eid}
+        parts = base.split("/")
+        eid = parts[2] if len(parts) > 2 else ""
+        if len(parts) == 3 and method == "GET":
+            return dict(self.view(self.items[eid]), attachments=self.atts.get(eid, []))
+        if len(parts) == 3 and method == "PUT":
+            it = self.items[eid]
+            assert body["id"] == eid and body.get("purchasePrice") == it.get("purchasePrice")  # nothing dropped
+            it.update(name=body["name"], quantity=body["quantity"], description=body["description"],
+                      archived=body.get("archived", False), fields=body.get("fields", []),
+                      tagIds=body[tag_key], loc=body[loc_key])
+            self.puts.append((eid, body))
+            return self.view(it)
+        if len(parts) == 4 and parts[3] == "maintenance":
+            if method == "POST":
+                self.maint.setdefault(eid, []).append(body)
+                return body
+            return list(self.maint.get(eid, []))
+        raise AssertionError((method, path))
 
     def fetch(self, url, headers=None, max_bytes=0, timeout=0):
         assert url.endswith(("/entities/e2/attachments/a1", "/items/e2/attachments/a1"))
         return DISHWASHER_PDF
 
 
-def use_homebox(tool, monkeypatch, new=True, add=False, api_key=""):
+def use_homebox(tool, monkeypatch, new=True, write=True, api_key=""):
     hb = FakeHomebox(new)
     monkeypatch.setattr(torke, "_json", hb.json)
     monkeypatch.setattr(torke, "_fetch_bytes", hb.fetch)
     tool.valves.homebox_lookup = True
     tool.valves.homebox_url = "http://homebox:7745"
     tool.valves.homebox_api_key = api_key
-    tool.valves.homebox_add_tools = add
+    tool.valves.homebox_write = write
     tool.valves.homebox_tools_location = "Garage"
     torke._PDF_CACHE.clear()
     return hb
+
+
+@pytest.fixture(params=[True, False], ids=["homebox-0.26", "homebox-older"])
+def hbtool(request, tool, monkeypatch):
+    return tool, use_homebox(tool, monkeypatch, new=request.param)
+
+
+def test_without_homebox(tool):
+    for out in (run(tool.save_my_tools(["torque wrench"], __user__=USER)),
+                run(tool.save_needed_parts(["pads"], __user__=USER)),
+                run(tool.shopping_list(__user__=USER)),
+                run(tool.log_repair("Civic", "Brakes", "pads", __user__=USER)),
+                run(tool.repair_history("Civic", __user__=USER))):
+        assert "Homebox isn't set up" in out
+    out = run(tool.check_tools(["torque wrench", "10 mm socket"], "brakes", "Civic", __user__=USER))
+    assert isinstance(out, str) and "starter kit only" in out and "10 mm socket: kit" in out
+    assert "rent or borrow" in out.lower()
+    html, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
+    assert "Needs Homebox" in html
+
+
+def test_read_only_until_allowed(tool, monkeypatch):
+    hb = use_homebox(tool, monkeypatch, write=False)
+    assert "can only read Homebox" in run(tool.save_my_tools(["floor jack"], __user__=USER))
+    assert "can only read Homebox" in run(tool.log_repair("2012 Honda Civic", "x", "y", __user__=USER))
+    assert not hb.created and not hb.puts and not hb.maint
+
+
+def test_api_key_skips_login(tool, monkeypatch):
+    hb = use_homebox(tool, monkeypatch, api_key="hb_key")
+    run(tool.check_tools(__user__=USER))
+    assert not any(path == "/users/login" for _, path in hb.calls)
+
+
+def test_tools_card_from_homebox(hbtool):
+    tool, hb = hbtool
+    html, ctx = body(run(tool.check_tools(["torque wrench", "10 mm socket", "jack stands", "<b>x</b> puller"],
+                                          "front brakes", "2012 Honda Civic", __user__=USER)))
+    assert "Torque wrench 3/8, Garage (Homebox)" in html and "Missing" in html
+    assert "You can still do this job" in html and "Rent or borrow" in html and "I have it" in html
+    assert "Add 2 to my tools to get" in html and "<b>x</b>" not in html
+    assert "torque wrench: have" in ctx and "10 mm socket: kit" in ctx and "jack stands: need" in ctx
+    assert "don't stop the job" in ctx
+
+
+def test_tools_to_get_flow(hbtool):
+    tool, hb = hbtool
+    out = run(tool.save_needed_tools(["jack stands"], "front brakes", "2012 Honda Civic", "manual p. 4", __user__=USER))
+    assert "jack stands" in out
+    jack = hb.by_name("jack stands")
+    assert hb.tag_names(jack) == ["To get", "Tools"] and jack["description"] == "For 2012 Honda Civic: front brakes"
+    assert {"name": "Source", "type": "text", "textValue": "manual p. 4"} in jack["fields"]
+    assert jack["quantity"] == 0 and jack["loc"] == "L2"
+    run(tool.save_needed_tools(["floor jack"], "front brakes", "2012 Honda Civic", rent=True, __user__=USER))
+    assert hb.tag_names(hb.by_name("floor jack")) == ["Rent", "To get", "Tools"]
+    assert "Now to buy: floor jack" in run(tool.save_needed_tools(["floor jack"], "front brakes", "2012 Honda Civic",
+                                                                  __user__=USER))
+    run(tool.save_needed_tools(["floor jack"], "front brakes", "2012 Honda Civic", rent=True, __user__=USER))
+    assert "floor jack (rent or borrow)" in run(tool.needed_tools_list("Honda Civic", __user__=USER))
+    out = run(tool.save_my_tools(["Jack stands, 3 ton"], __user__=USER))
+    assert "Moved from tools to get to your tools: Jack stands, 3 ton" in out
+    assert hb.tag_names(jack) == ["Tools"] and jack["quantity"] == 1
+    assert "archived in Homebox): floor jack" in run(tool.remove_needed_tools(["floor jack"], __user__=USER))
+    assert hb.by_name("floor jack")["archived"]
+    assert "Already in Homebox" in run(tool.save_my_tools(["Torque wrench 3/8"], __user__=USER))
+    assert "Archived in Homebox: Torque wrench 3/8" in run(tool.remove_my_tools(["torque wrench"], __user__=USER))
+    assert "None of those" in run(tool.remove_my_tools(["paint brushes"], __user__=USER))
+    assert not hb.by_name("Paint brushes")["archived"]
+    with pytest.raises(PermissionError):
+        tool._edit(tool._hb(), {"id": "e4", "name": "Paint brushes", "tags": []}, archived=True)
+
+
+def test_parts_flow_and_repair_log(hbtool, monkeypatch):
+    tool, hb = hbtool
+    sent = []
+    monkeypatch.setattr(torke, "_http", lambda url, **kw: sent.append(json.loads(kw["data"])) or "")
+    tool.valves.parts_list = True
+    tool.valves.parts_webhook_url = "http://ha:8123/api/webhook/x"
+    out = run(tool.save_needed_parts([{"name": "Front brake pads", "part_number": "D1089", "price": "$42.99",
+                                       "store": "RockAuto", "link": "https://www.rockauto.com/x", "qty": 2},
+                                      "Brake fluid DOT 3"], "front brakes", "2012 Honda Civic", __user__=USER))
+    assert "Front brake pads, Brake fluid DOT 3" in out and "Sent to Home Assistant" in out
+    assert sent[0]["parts"][0]["name"] == "Front brake pads (D1089)"
+    pads = hb.by_name("Front brake pads")
+    assert hb.tag_names(pads) == ["Parts", "To get"] and pads["loc"] == "L3" and pads["quantity"] == 0
+    assert "Already listed" in run(tool.save_needed_parts(["Front brake pads"], "front brakes", "2012 Honda Civic",
+                                                          __user__=USER))
+    html, ctx = body(run(tool.shopping_list(__user__=USER)))
+    assert "Front brake pads x2" in html and "Part D1089. $42.99 at RockAuto" in html
+    assert 'href="https://www.rockauto.com/x"' in html and ">Buy<" in html and ">Find it<" in html
+    assert "The Front brake pads arrived. Put it on the parts shelf." in html
+    assert "On the parts shelf: Front brake pads" in run(tool.parts_arrived(["front brake pads"], __user__=USER))
+    assert hb.tag_names(pads) == ["Parts"] and pads["quantity"] == 2 and pads["loc"] == "L3"
+    card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
+    assert "1 to get" in card  # brake fluid still to get
+    assert "archived" in run(tool.use_parts(["front brake pads"], "2012 Honda Civic", __user__=USER))
+    assert pads["archived"] and pads["quantity"] == 0
+    assert "Took off" in run(tool.remove_needed_parts(["brake fluid"], __user__=USER))
+    out = run(tool.log_repair("2012 Honda Civic", "Front brakes", "Pads D1089, 104k mi", "2026-10-29", "$90",
+                              __user__=USER))
+    assert "Logged on 2012 Honda Civic" in out
+    assert hb.maint["e3"] == [{"name": "Front brakes", "description": "Pads D1089, 104k mi",
+                               "completedDate": "2026-10-29", "cost": 90.0}]
+    assert "Front brakes: Pads D1089" in run(tool.repair_history("2012 Honda Civic", __user__=USER))
+    card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
+    assert "1 entry" in card
+    assert "Couldn't find" in run(tool.log_repair("Spaceship", "x", "y", __user__=USER))
+
+
+def test_shopping_card_rentals_and_escaping(tool, monkeypatch):
+    use_homebox(tool, monkeypatch)
+    run(tool.save_needed_tools(["floor jack"], "front brakes", "2012 Honda Civic", rent=True, __user__=USER))
+    run(tool.save_needed_parts([{"name": "<img src=x onerror=alert(1)>", "link": 'https://x.example/"onclick=1'}],
+                               __user__=USER))
+    html, _ = body(run(tool.shopping_list(__user__=USER)))
+    assert "Find a rental" in html and "Returned" in html and "Rent or borrow. For 2012 Honda Civic" in html
+    assert "I returned the rented floor jack. Take it off my tools to get." in html
+    assert "<img src=x" not in html and '"onclick=1' not in html
+    html, _ = body(run(tool.shopping_list("Bosch dishwasher", __user__=USER)))
+    assert html.count("Nothing to get.") == 2
 
 
 def test_tool_matching_rules():
@@ -427,58 +563,6 @@ def test_tool_matching_rules():
     assert torke._kit_covers("torque wrench", uv) == ""
     assert torke._kit_covers("1/2 in drive breaker bar", uv) == ""
     assert torke._kit_covers("jack stands", uv) == ""
-
-
-def test_tools_card(tool):
-    user = {"id": "t1", "valves": torke.Tools.UserValves(my_tools="torque wrench 3/8 in")}
-    html, ctx = body(run(tool.check_tools(["torque wrench", "10 mm socket", "jack stands", "<b>x</b> puller"],
-                                          "front brakes", "2012 Honda Civic", __user__=user)))
-    assert "You have" in html and "You need" in html and "Add 2 to my needed tools" in html
-    assert "I have it" in html and "<b>x</b>" not in html
-    assert "torque wrench: have" in ctx and "10 mm socket: kit" in ctx and "jack stands: need" in ctx
-
-
-def test_needed_list_is_separate_and_clears_when_owned(tool, monkeypatch):
-    sent = []
-    monkeypatch.setattr(torke, "_http", lambda url, **kw: sent.append((url, json.loads(kw["data"]))) or "")
-    tool.valves.tools_needed_list = True
-    tool.valves.tools_needed_webhook_url = "http://ha:8123/api/webhook/tools"
-    out = run(tool.save_needed_tools(["jack stands", "32 mm axle nut socket"], "CV axle", "2012 Honda Civic",
-                                     "manual p. 4", __user__=USER))
-    assert "jack stands" in out and "Home Assistant" in out
-    assert sent[0][0].endswith("/tools") and sent[0][1]["tools"] == ["jack stands", "32 mm axle nut socket"]
-    assert "already" in run(tool.save_needed_tools(["jack stands"], "CV axle", "2012 Honda Civic", __user__=USER)).lower()
-    out = run(tool.needed_tools_list("Honda Civic", __user__=USER))
-    assert "32 mm axle nut socket" in out and "manual p. 4" in out
-    out = run(tool.save_my_tools(["jack stands, 3 ton"], "garage", __user__=USER))
-    assert "Saved to your TorKe tool list" in out and "Took 1 off the needed tools list" in out
-    assert "jack stands" not in run(tool.needed_tools_list(__user__=USER))
-    assert "Took 1" in run(tool.remove_needed_tools(["32 mm axle nut socket"], __user__=USER))
-    assert "empty" in run(tool.needed_tools_list(__user__=USER))
-    assert "Removed 1" in run(tool.remove_my_tools(["jack stands, 3 ton"], __user__=USER))
-    assert not any("/parts" in u for u, _ in sent)
-
-
-def test_homebox_new_api_tools_and_adding(tool, monkeypatch):
-    hb = use_homebox(tool, monkeypatch, new=True, api_key="hb_key")
-    html, ctx = body(run(tool.check_tools(["torque wrench", "jack stands"], "brakes", __user__=USER)))
-    assert "Torque wrench 3/8, Pegboard (Homebox)" in html and "jack stands: need" in ctx
-    out = run(tool.save_my_tools(["Jack stands 3 ton"], __user__=USER))
-    assert "Adding to Homebox is off" in out and not hb.posts  # never writes unless allowed
-    tool.valves.homebox_add_tools = True
-    out = run(tool.save_my_tools(["Floor jack", "Torque wrench 3/8"], __user__=USER))
-    assert "Added to Homebox: Floor jack (Garage)" in out and "already in Homebox" in out
-    assert hb.posts == [("/entities", {"name": "Floor jack", "description": "Added by TorKe", "quantity": 1,
-                                       "parentId": "L2", "tagIds": ["t1"]})]
-
-
-def test_homebox_old_api(tool, monkeypatch):
-    hb = use_homebox(tool, monkeypatch, new=False, add=True)
-    html, _ = body(run(tool.check_tools(["torque wrench"], __user__=USER)))
-    assert "Pegboard (Homebox)" in html
-    run(tool.save_my_tools(["Floor jack"], __user__=USER))
-    assert hb.posts == [("/items", {"name": "Floor jack", "description": "Added by TorKe",
-                                    "locationId": "L2", "labelIds": ["t1"]})]
 
 
 def test_manual_attached_in_homebox(tool, monkeypatch):
@@ -524,36 +608,3 @@ def test_open_project_survives_restart(tool):
                           __user__=USER, __chat_id__="c42"))
     torke._PROJECTS.clear()  # what a restart does
     assert "Bosch SHE3AR75UC" in run(tool.find_manuals(__user__=USER, __chat_id__="c42"))
-
-
-# ---------------------------------------------------------------- parts list and shopping card (v0.3)
-
-def test_shopping_card_and_got_it(tool):
-    run(tool.open_project("2012 Honda Civic", "front brakes", "vehicle", "Honda", "Civic", "2012",
-                          __user__=USER, __chat_id__="s1"))
-    run(tool.save_needed_tools(["jack stands"], __user__=USER, __chat_id__="s1"))
-    out = run(tool.save_needed_parts([
-        {"name": "Front brake pads", "part_number": "D1089", "link": "https://www.rockauto.com/x",
-         "price": "$42.99", "store": "RockAuto"},
-        {"name": "Brake fluid DOT 3", "qty": 2}], __user__=USER, __chat_id__="s1"))
-    assert "Front brake pads, Brake fluid DOT 3" in out
-    assert "Already listed" in run(tool.save_needed_parts(["Front brake pads"], __user__=USER, __chat_id__="s1"))
-    html, ctx = body(run(tool.shopping_list(__user__=USER)))
-    assert "Tools to get" in html and "Parts to get" in html and "1 tool, 2 parts" in html
-    assert 'href="https://www.rockauto.com/x"' in html and ">Buy<" in html and ">Find it<" in html
-    assert "Part D1089. $42.99 at RockAuto" in html and "Brake fluid DOT 3 x2" in html
-    assert "I got this part: Front brake pads. Take it off my parts list." in html
-    assert "I got this tool: jack stands. Save it to my tools." in html
-    assert "#D1089" in ctx and "remove_needed_parts" in ctx
-    card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
-    assert "2 on your list" in card and "1 needed" in card
-    assert "Took 1" in run(tool.remove_needed_parts(["front brake pads"], __user__=USER))
-    html, _ = body(run(tool.shopping_list("Bosch dishwasher", __user__=USER)))
-    assert html.count("Nothing to get.") == 2
-
-
-def test_shopping_card_escapes(tool):
-    run(tool.save_needed_parts([{"name": "<img src=x onerror=alert(1)>", "link": 'https://x.example/"onclick=1'}],
-                               __user__=USER))
-    html, _ = body(run(tool.shopping_list(__user__=USER)))
-    assert "<img src=x" not in html and '"onclick=1' not in html

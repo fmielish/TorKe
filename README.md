@@ -4,7 +4,7 @@
 
 Fix it yourself with pubs and videos.
 
-TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). Tell it what you're fixing and it opens a project card in the chat: a picture of the thing on the right, and six buttons on the left. It helps with vehicles, appliances, tools, electronics, yard equipment and the house.
+TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). It brings each job's manuals and repair documents together with the tools and parts the job needs, and keeps all of it in [Homebox](https://homebox.software). Tell it what you're fixing and it opens a project card in the chat: a picture of the thing on the right, and six buttons on the left. It helps with vehicles, appliances, tools, electronics, yard equipment and the house.
 
 <p align="center">
   <img src="docs/card-photo.png" width="640" alt="Project card for a Bosch dishwasher that won't drain, with six buttons on the left and the user's photo in a circular frame on the right">
@@ -19,44 +19,59 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 |---|---|---|
 | **Manuals** | Reads your own manual (attached to the item in Homebox or in the chat), then finds manuals and guides on the sites you turn on | A web search link |
 | **Videos** | Shows YouTube how-to videos as cards you can tap | A YouTube search link. Real results with SearXNG or a YouTube API key |
-| **Parts** | Finds where to buy each part, matched to your model, and keeps your parts list | Search links and a parts list. Optional copy in Home Assistant |
-| **Tools you'll need** | Finds the job's tools in its manual and shows what you have and what you need | Assumes a basic 100-piece tool kit, a 100-piece socket set and a multimeter |
+| **Parts** | Finds where to buy each part, matched to your model, and keeps parts to get in Homebox | Search links |
+| **Tools you'll need** | Finds the job's tools in its manual and shows what you have and what's missing | Assumes a basic 100-piece tool kit, a 100-piece socket set and a multimeter |
 | **Safety warnings** | Built-in rules for hazards like lifting a car, brakes, airbags, fuel, house wiring, gas and refrigerant, plus optional US recall checks | Built-in rules |
-| **Repair log** | Keeps each person's finished jobs on your server | Off |
+| **Repair log** | The item's own maintenance log in Homebox | Needs Homebox |
 
-Most options start **off**. Each one is a switch in the tool's settings, so you choose what TorKe can reach.
+**Homebox is required** for tools, parts and the repair log. Most other options start **off**; each one is a switch in the tool's settings, so you choose what TorKe can reach.
 
 ## Install
 
 1. In Open WebUI, open **Workspace > Tools**, select **+**, paste [`torke.py`](torke.py), name it **TorKe** (tool ID `torke`) and save.
 2. In **Workspace > Models**, create a model named **TorKe**: choose a base model that's good at tool calling, paste [`model/torke-system-prompt.md`](model/torke-system-prompt.md) as its system prompt, turn on the TorKe tool and save. You can also import [`model/torke-model.json`](model/torke-model.json) and then choose the base model.
-3. Start a chat with TorKe: "My dishwasher won't drain."
+3. In the tool's settings, connect Homebox and turn on **Let TorKe update Homebox**.
+4. Start a chat with TorKe: "My dishwasher won't drain."
 
-The [setup guide](docs/SETUP.md) covers every setting, SearXNG, YouTube, Homebox and Home Assistant.
+The [setup guide](docs/SETUP.md) covers Homebox, every setting, SearXNG, YouTube and Home Assistant.
 
-## Your tools
+## Everything lives in Homebox
+
+| What | In Homebox |
+|---|---|
+| Manuals | Attached to the item (type Manual) |
+| Tools you own | Tagged Tools |
+| Tools to get | Tagged Tools and To get, plus Rent for ones you'll rent or borrow |
+| Parts to get | Tagged Parts and To get, with part number, buy link and price |
+| Parts waiting to go in | On the Parts shelf |
+| Installed parts | Archived, so your parts history stays |
+| Repair log | The item's maintenance log |
+
+TorKe adds items, changes only items tagged Tools or Parts, and adds repair log entries. It never deletes anything, and it saves nothing until you say yes.
+
+## Tools
 
 <p align="center">
-  <img src="docs/card-tools.png" width="640" alt="Tools card for a brake job: tools you have on the left, tools you need on the right, with a button to add them to the needed tools list">
+  <img src="docs/card-tools.png" width="640" alt="Tools card for a brake job: tools you have on the left, missing tools on the right with I have it and Rent or borrow buttons">
 </p>
 
-TorKe keeps two lists for each person:
+When there's a manual for the job (a PDF attached to the item in Homebox or in the chat, or an iFixit guide), TorKe reads the tools from it and compares them with what you own.
 
-- **Tools you own.** The starting point is a basic 100-piece home tool kit, a 100-piece socket set and a multimeter. To add more, tell TorKe ("I bought a torque wrench"), send a photo of a tool, a kit's contents list or a receipt, or tap **I have it** on the Tools card. With Homebox connected, Homebox is the main list.
-- **Needed tools.** Tools a job needs that you don't have yet. It's separate from the parts list, and a tool comes off it when you get it.
+**A missing tool doesn't stop the job.** For each one, TorKe offers to rent or borrow it (many auto parts stores lend specialty tools), a workaround with tools you have, or buying it. Missing tools go on your tools to get. A tool you buy moves to your tools; a rental is archived when you return it.
 
-When there's a manual for the job (a PDF attached to the item in Homebox or in the chat, or an iFixit guide), TorKe reads the tools from it. It always asks before saving anything to a list. It never assumes a torque wrench, jack stands or specialty tools.
+To add tools you own, tell TorKe ("I bought a torque wrench"), send a photo of a tool, a kit's contents list or a receipt, or tap **I have it**. TorKe never assumes a torque wrench, jack stands or specialty tools.
 
 ## Shopping list
 
 <p align="center">
-  <img src="docs/card-shopping.png" width="640" alt="Shopping list card: tools to get on the left, parts to get on the right, each with a Buy or Find it link and a Got it button">
+  <img src="docs/card-shopping.png" width="640" alt="Shopping list card: tools to get on the left, parts to get on the right, each with a Buy, Find it or Find a rental link and a button">
 </p>
 
-Parts you still need, like new brake pads, go on your parts list with the part number, a buy link and the price. Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side by side. The two lists stay separate.
+Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side by side. The two lists stay separate.
 
-- **Buy / Find it** opens the store page, or a search when there's no link saved. TorKe never buys anything.
-- **Got it** on a tool saves it to your tools. On a part, it just comes off the list: you put it on, toss the old one, and the repair log notes it.
+- **Buy / Find it / Find a rental** opens the store page, or a search. TorKe never buys anything.
+- **Got it** on a tool moves it to your tools. On a part, it goes to the Parts shelf until it's installed; then it's archived and the job goes in the repair log.
+- **Returned** on a rental takes it off your list.
 
 ## Manual sites
 
@@ -75,8 +90,7 @@ All off by default:
 - **No outside fonts, scripts or tracking.** Cards are self-contained.
 - **Pictures, when turned on,** load from the site they came from, so that site sees the request.
 - **Searches** go through your own SearXNG if you set one. Otherwise TorKe gives you links to open yourself.
-- **The repair log, tool lists and parts list** stay on your Open WebUI server.
-- **Homebox:** TorKe only adds new tools, when you allow it. It never changes or deletes anything there.
+- **Your tools, parts and repair log** stay in your own Homebox. TorKe keeps only the open project for each chat on your Open WebUI server.
 
 ## Safety
 
@@ -84,12 +98,12 @@ TorKe points you to the manual and tells you when a job is for a professional, b
 
 ## Status
 
-Version 0.3.0 is a draft. It passes its offline tests but hasn't been tested in a live Open WebUI yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.4.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 
 - `python -m pytest -q` runs the offline tests. They need `pydantic` and `pytest`.
-- `python scripts/render_preview.py` redraws the preview images. It needs `playwright` and `pillow`.
+- `python scripts/render_preview.py` redraws the preview images. It needs `playwright`, `pillow` and `pytest`.
 
 ## License
 
