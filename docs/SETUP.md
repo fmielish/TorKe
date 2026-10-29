@@ -8,6 +8,7 @@ TorKe brings each job's manuals and repair documents together with the tools and
 - **Homebox.** Required for tools, parts and the repair log. Without it, TorKe still helps with a job (manual sites, videos, safety warnings) but can't keep anything.
 - **A model that's good at tool calling.** It needs to choose and call TorKe's functions reliably. A model with vision can also look at photos the user attaches.
 - **Optional:** SearXNG for pictures and real search results, a YouTube API key, and Home Assistant for copies of the lists.
+- **Running a whole-house setup** (scheduled upkeep, recalls, receipts, shop work, room screens)? See [HOUSE-SETUP.md](HOUSE-SETUP.md) for the extra switches and the apps they need.
 
 ## 2. Install the tool
 
