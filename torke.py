@@ -1360,7 +1360,7 @@ def _shopping_html(tools: list, parts: list, item: str) -> str:
                                  f"I got the rental {name} for this job."))
         else:
             link = e.get("fields", {}).get("Buy link", "")
-            tool_rows.append(row("need", name, desc, link or search(f"{name} buy"), "Buy" if link else "Find it",
+            tool_rows.append(row("need", name, desc, link or search(f"{name} buy"), "Buy",
                                  "Got it", f"I got this tool: {name}. Save it to my tools."))
     part_rows = []
     for e in parts:
@@ -1372,7 +1372,7 @@ def _shopping_html(tools: list, parts: list, item: str) -> str:
         note = ". ".join(x for x in (e.get("description", ""), extra) if x)
         link = f.get("Buy link", "")
         q = " ".join(x for x in (e["name"], f.get("Part number", ""), e.get("description", "").removeprefix("For ")) if x)
-        part_rows.append(row("need", name, note, link or search(f"{q} buy"), "Buy" if link else "Find it", "Got it",
+        part_rows.append(row("need", name, note, link or search(f"{q} buy"), "Buy", "Got it",
                              f"The {e['name']} arrived. Put it on the parts shelf."))
     empty = '<li class="none">Nothing to get.</li>'
     sub = f"For {item}" if item else f"{len(tools)} tool{'s' if len(tools) != 1 else ''}, " \
@@ -1387,13 +1387,57 @@ def _shopping_html(tools: list, parts: list, item: str) -> str:
         f'<ul class="rows">{"".join(tool_rows) or empty}</ul></div></div>'
         f'<div class="panel"><div class="in"><h2>Parts to get <span>{len(parts)}</span></h2>'
         f'<ul class="rows">{"".join(part_rows) or empty}</ul></div></div></div>'
-        f'<p class="hint">Everything here is kept in Homebox. Links open in a new tab, and TorKe never buys anything. '
+        f'<p class="hint">Everything here is kept in Homebox. Buy opens the saved store page, or a search when there '
+        f'isn\'t one, in a new tab; TorKe never buys anything. '
         f'Buttons send a request to TorKe, and Open WebUI may ask you to confirm it.</p>'
         f'</section><script>const P={_js(prompts)};</script>{_SIZER}</body></html>'
     )
 
 
-def _closeout_html(item: str, job: str, c: dict) -> str:
+_CLOSE_CSS = """
+.logbox{margin-top:18px}
+.fields{display:grid;grid-template-columns:minmax(130px,200px) 1fr;gap:12px;align-items:start;margin-top:4px}
+.fld{display:grid;gap:5px;font-size:14px;color:var(--steel)}
+.fld input,.fld textarea{font:inherit;font-size:16px;color:var(--ice);background:var(--abyss);border:1px solid var(--line);
+ border-radius:0;padding:8px 10px;width:100%;resize:vertical;line-height:1.35}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:var(--arc);box-shadow:inset 0 0 0 1px var(--arc)}
+.fld ::placeholder{color:var(--steel);opacity:.75}
+.fields.one{grid-template-columns:1fr}
+@media (max-width:560px){.fields{grid-template-columns:1fr}}
+"""
+
+_FINISH_JS = """<script>
+// VERIFY: typing in these boxes inside Open WebUI's sandboxed card frame (no form is submitted; the button reads them)
+function finish(){
+ var m=document.getElementById('mi'),n=document.getElementById('nt'),t=P[0];
+ var mv=m?m.value.trim():'',nv=n?n.value.trim().replace(/\\n{3,}/g,'\\n\\n'):'';
+ if(mv)t+='\\n'+L+': '+mv;if(nv)t+='\\nNotes: '+nv;ask(t)}
+</script>"""
+
+
+def _reading_label(category: str) -> str:
+    """What the reading box on the Job done card is called: mileage for vehicles, none for appliances."""
+    if category == "vehicle":
+        return "Mileage"
+    if category in ("appliance", "home", "electronics"):
+        return ""
+    return "Mileage or hours"
+
+
+def _reading(value: str) -> str:
+    """'104250' -> 'Mileage: 104,250'; '212 hours' -> 'Hours: 212'. Anything else is kept as typed."""
+    v = str(value or "").strip()[:40]
+    if not v:
+        return ""
+    hours = re.search(r"\b(hours?|hrs?)\b", v, re.I)
+    km = re.search(r"\bkm\b", v, re.I)
+    num = re.sub(r"[,\s]", "", re.sub(r"(?i)\b(miles?|mi|hours?|hrs?|km)\b\.?", "", v))
+    if num.isdigit():
+        v = f"{int(num):,}" + (" km" if km else "")
+    return ("Hours: " if hours else "Mileage: ") + v
+
+
+def _closeout_html(item: str, job: str, c: dict, reading: str = "Mileage") -> str:
     def rows(entries, note_fn, empty):
         if not entries:
             return f'<li class="none">{empty}</li>'
@@ -1411,10 +1455,21 @@ def _closeout_html(item: str, job: str, c: dict) -> str:
     if c["leftover"]:
         left = (f'<div class="panel"><div class="in"><h2>Take off the lists <span>{len(c["leftover"])}</span></h2>'
                 f'<ul class="rows">{rows(c["leftover"], lambda e: "No longer needed for this job", "")}</ul></div></div>')
+    mile = (f'<label class="fld" for="mi"><span>{_esc(reading)}</span><input id="mi" type="text" inputmode="numeric" '
+            f'maxlength="30" autocomplete="off" placeholder="{"Odometer" if reading == "Mileage" else "Odometer or hour meter"}">'
+            f'</label>'
+            if reading else "")
+    logbox = (
+        f'<div class="panel logbox"><div class="in"><h2>Repair log</h2>'
+        f'<p class="lead">Saved with the parts and the date. {"Both optional" if reading else "Optional"}.</p>'
+        f'<div class="fields{"" if reading else " one"}">{mile}'
+        f'<label class="fld" for="nt"><span>Notes</span><textarea id="nt" rows="3" maxlength="1500" '
+        f'placeholder="What was wrong, what fixed it, anything for next time"></textarea></label></div></div></div>'
+    )
     return (
         f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
         f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f'<style>{_HUD_CSS}{_TOOLS_CSS}{_SHOP_CSS}</style></head><body>'
+        f'<style>{_HUD_CSS}{_TOOLS_CSS}{_SHOP_CSS}{_CLOSE_CSS}</style></head><body>'
         f'<section class="hud tools shop" aria-label="Close out the job">'
         f'<header><div><h1>Job done</h1><p class="job">{_esc(item)}{": " + _esc(job) if job else ""}</p></div>{_MARK}</header>'
         f'<div class="cols"><div class="panel"><div class="in"><h2>Parts to archive <span>{len(c["parts"])}</span></h2>'
@@ -1423,10 +1478,12 @@ def _closeout_html(item: str, job: str, c: dict) -> str:
         f'<div class="panel"><div class="in"><h2>Tools to return <span>{len(c["rented"])}</span></h2>'
         f'<p class="lead">Rented or borrowed for this job.</p>'
         f'<ul class="rows">{rows(c["rented"], lambda e: "", "Nothing rented or borrowed.")}</ul></div></div>{left}</div>'
-        f'<button type="button" class="cta" onclick="ask(P[0])"><span>Finish job: archive, return and log it</span></button>'
+        f'{logbox}'
+        f'<button type="button" class="cta" onclick="finish()"><span>Finish job: archive, return and log it</span></button>'
         f'<p class="hint">One tap does it all and writes the repair log. Nothing is deleted; archived items can be '
         f'restored in Homebox. Open WebUI may ask you to confirm.</p>'
-        f'</section><script>const P={_js([prompt])};</script>{_SIZER}</body></html>'
+        f'</section><script>const P={_js([prompt])},L={_js(reading or "Mileage")};</script>{_SIZER}{_FINISH_JS}'
+        f'</body></html>'
     )
 
 
@@ -2997,10 +3054,12 @@ class Tools:
         if not hb:
             return msg
         p = self._project(__chat_id__, __user__)
+        same = not item or str(item).strip().lower() == str(p.get("item", "")).strip().lower()
         item = str(item or p.get("item", "")).strip()
         job = str(job or p.get("problem", "")).strip()
         if not item:
             return "Ask what was fixed."
+        reading = _reading_label(p.get("category", "") if same else "")
         await _status(__event_emitter__, "Getting the close-out ready")
         try:
             c = await _run(self._closeout, hb, item, job)
@@ -3010,17 +3069,20 @@ class Tools:
         lines = (["Parts to archive (installed): " + (", ".join(e["name"] for e in c["parts"]) or "none"),
                   "Rented or borrowed to return: " + (", ".join(e["name"] for e in c["rented"]) or "none"),
                   "Still on the lists, to take off: " + (", ".join(e["name"] for e in c["leftover"]) or "none")])
+        boxes = f"{reading} and Notes boxes" if reading else "a Notes box"
         context = (f"Close-out card shown for {item}{' (' + job + ')' if job else ''}.\n" + "\n".join(lines)
-                   + "\nDon't repeat it. Ask for anything worth adding to the repair log (mileage, what fixed it). "
-                     "When they tap Finish job or say yes, call finish_job with those notes. If they want to keep "
-                     "something, do the rest one by one instead.")
-        return _card(_closeout_html(item, job, c), context)
+                   + f"\nDon't repeat it. The card has {boxes} for the repair log, so don't ask for them; what they "
+                     "type comes in their Finish job message. When they tap Finish job or say yes, call finish_job "
+                     "with the mileage (or hours) and notes from that message, plus any they gave earlier in the "
+                     "chat. If they want to keep something, do the rest one by one instead.")
+        return _card(_closeout_html(item, job, c, reading), context)
 
     async def finish_job(
         self,
         item: str = "",
         job: str = "",
         notes: str = "",
+        mileage: str = "",
         __user__: Optional[dict] = None,
         __chat_id__: Optional[str] = None,
         __event_emitter__: Optional[Callable] = None,
@@ -3028,10 +3090,11 @@ class Tools:
         """
         Close out a finished job in one go, after the user says yes (the Finish job button counts): archives the
         installed parts, archives rented and borrowed tools as returned, takes anything left for this job off the
-        lists, and writes the repair log entry with the parts and part numbers. Nothing is deleted.
+        lists, and writes the repair log entry with the mileage, notes, parts and part numbers. Nothing is deleted.
         :param item: what was fixed (the open project if empty)
         :param job: the job, used as the repair log title (the open project if empty)
-        :param notes: what was wrong and what fixed it, mileage, anything to remember next time (optional)
+        :param notes: what was wrong and what fixed it, anything to remember next time (optional)
+        :param mileage: the odometer reading, e.g. "104250"; for engine hours include the word, e.g. "212 hours"
         """
         hb, msg = self._need_hb()
         if not hb:
@@ -3057,7 +3120,9 @@ class Tools:
                     done[k].append(e["name"])
         except Exception as e:
             return f"Homebox couldn't be updated partway through: {str(e)[:150]}. Done so far: {done}"
+        reading = _reading(mileage)
         details = "\n".join(x for x in (
+            reading,
             str(notes or "").strip(),
             ("Parts installed: " + ", ".join(done["parts"])) if done["parts"] else "",
             ("Rented or borrowed, returned: " + ", ".join(done["rented"])) if done["rented"] else "") if x)
@@ -3067,7 +3132,7 @@ class Tools:
             if ent:
                 await _run(hb.add_maintenance, ent["id"], {"name": (job or "Repair")[:120], "description": details[:4000],
                                                            "completedDate": datetime.date.today().isoformat()})
-                logged = f"Logged on {ent['name']}."
+                logged = f"Logged on {ent['name']}{' (' + reading + ')' if reading else ''}."
             else:
                 logged = f"'{item}' isn't in Homebox, so the repair log entry wasn't written."
         except Exception as e:

@@ -58,8 +58,8 @@ Each tool or part to get has "For" in its description, such as "For 2012 Honda C
 
 - **Tools:** the Tools card shows what you have and what's missing. A missing tool never stops the job: TorKe offers to rent or borrow it, a workaround with tools you have, or buying it. Missing tools go on your tools to get. A bought tool moves over to your tools. A rental counts as yours from pickup (Got it) until the job's done; then TorKe asks whether it's gone back and archives it.
 - **Parts:** parts you still need go on your parts to get. When they arrive, they move to the Parts shelf. Once installed (old ones tossed), they're archived and the job goes in the item's repair log with the part numbers.
-- **Shopping:** "What do I need to buy?" shows tools to get and parts to get side by side, with buy or rental links. The two lists stay separate.
-- **Job done:** the project card's **Job done** button shows what to close out: installed parts to archive, rented or borrowed tools to return, and anything left on the lists for that job. One tap on **Finish job** does it all and writes the repair log.
+- **Shopping:** "What do I need to buy?" shows tools to get and parts to get side by side. **Buy** opens the store page TorKe saved, or a web search when there isn't one; rentals get **Find a rental**. The two lists stay separate.
+- **Job done:** the project card's **Job done** button shows what to close out: installed parts to archive, rented or borrowed tools to return, and anything left on the lists for that job. It has boxes for **Mileage** (vehicles; "Mileage or hours" for yard equipment and other machines; none for appliances) and **Notes**. One tap on **Finish job** does it all and writes the repair log with the date, mileage, notes and part numbers. Homebox's maintenance log has no mileage field, so the mileage goes at the top of the entry's description.
 
 **Manuals:** attach the PDF to the item in Homebox with the attachment type **Manual**. TorKe matches items by name, so name them the way people say them, such as "Bosch dishwasher SHE3AR75UC". TorKe reads text from PDFs; a manual that's only scanned pictures has no text, and TorKe says so.
 
@@ -203,6 +203,7 @@ TorKe 0.4.0 passed its offline tests, including against a stand-in Homebox for b
 - **Manual downloads** on Homebox versions before 0.26.
 - **Attached photos:** that a photo attached in the chat shows on the project card.
 - **Buttons:** the confirmation behavior of card buttons.
+- **Job done boxes:** that you can type in the Mileage and Notes boxes inside Open WebUI's card frame, and that what you typed shows in the Finish job message.
 - **iFixit:** the search endpoint and guide field names.
 - **Model file:** importing `torke-model.json`.
 - **Recall checks:** the CPSC manufacturer filter.

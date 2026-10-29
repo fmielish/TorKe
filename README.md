@@ -65,22 +65,22 @@ To add tools you own, tell TorKe ("I bought a torque wrench"), send a photo of a
 ## Shopping list
 
 <p align="center">
-  <img src="docs/card-shopping.png" width="640" alt="Shopping list card: tools to get on the left, parts to get on the right, each with a Buy, Find it or Find a rental link and a button">
+  <img src="docs/card-shopping.png" width="640" alt="Shopping list card: tools to get on the left, parts to get on the right, each with a Buy or Find a rental link and a Got it button">
 </p>
 
 Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side by side. The two lists stay separate.
 
-- **Buy / Find it / Find a rental** opens the store page, or a search. TorKe never buys anything.
+- **Buy** opens the store page TorKe saved, or a web search when there isn't one. **Find a rental** searches for a rental nearby. TorKe never buys anything.
 - **Got it** on a tool moves it to your tools. On a rental, it marks it picked up for the job. On a part, it goes to the Parts shelf until it's installed; then it's archived and the job goes in the repair log.
 - **Returning rentals** comes up when the job is over, not before.
 
 ## Job done
 
 <p align="center">
-  <img src="docs/card-job-done.png" width="640" alt="Job done card: parts to archive, tools to return, and items to take off the lists, with one Finish job button">
+  <img src="docs/card-job-done.png" width="640" alt="Job done card: parts to archive, tools to return, items to take off the lists, mileage and notes boxes, and one Finish job button">
 </p>
 
-When you finish, tap **Job done** on the project card. TorKe shows everything to close out: the installed parts to archive, rented or borrowed tools to return, and anything still on the lists for that job. One tap on **Finish job** does all of it and writes the repair log with the part numbers.
+When you finish, tap **Job done** on the project card. TorKe shows everything to close out: the installed parts to archive, rented or borrowed tools to return, and anything still on the lists for that job. Type the mileage and any notes if you like (what was wrong, what fixed it, anything for next time). One tap on **Finish job** does all of it and writes the repair log with the date, mileage, notes and part numbers.
 
 ## Manual sites
 

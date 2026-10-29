@@ -517,7 +517,9 @@ def test_parts_flow_and_repair_log(hbtool, monkeypatch):
                                                           __user__=USER))
     html, ctx = body(run(tool.shopping_list(__user__=USER)))
     assert "Front brake pads x2" in html and "Part D1089. $42.99 at RockAuto" in html
-    assert 'href="https://www.rockauto.com/x"' in html and ">Buy<" in html and ">Find it<" in html
+    assert 'href="https://www.rockauto.com/x"' in html and ">Find it<" not in html
+    assert html.count(">Buy<") == 2  # saved link and a search, same label
+    assert "duckduckgo.com/?q=Brake+fluid+DOT+3" in html
     assert "The Front brake pads arrived. Put it on the parts shelf." in html
     assert "On the parts shelf: Front brake pads" in run(tool.parts_arrived(["front brake pads"], __user__=USER))
     assert hb.tag_names(pads) == ["Parts"] and pads["quantity"] == 2 and pads["loc"] == "L3"
@@ -650,15 +652,61 @@ def test_job_done_closes_everything_in_one_press(hbtool):
     assert "Take off the lists" in html and "Brake cleaner" in html and "breaker bar" in html
     assert "Cabin air filter" not in html
     assert "Finish the job on 2012 Honda Civic: archive the parts, return the rentals" in html
-    out = run(tool.finish_job(notes="Pads and rotors at 104k mi", __user__=USER, __chat_id__="j1"))
+    assert '<span>Mileage</span><input id="mi"' in html and 'placeholder="Odometer"' in html
+    assert '<textarea id="nt"' in html and 'onclick="finish()"' in html and 'L="Mileage"' in html
+    assert "Mileage and Notes boxes" in ctx and "don't ask for them" in ctx
+    out = run(tool.finish_job(notes="Rotors were warped.", mileage="104250", __user__=USER, __chat_id__="j1"))
     assert "Parts archived: Front brake pads (D1089)" in out and "Returned: floor jack" in out
-    assert "Brake cleaner" in out and "breaker bar" in out and "Logged on 2012 Honda Civic" in out
+    assert "Brake cleaner" in out and "breaker bar" in out
+    assert "Logged on 2012 Honda Civic (Mileage: 104,250)." in out
     for name in ("Front brake pads", "floor jack", "Brake cleaner", "breaker bar"):
         assert hb.by_name(name)["archived"]
     assert not hb.by_name("Cabin air filter")["archived"]
     entry = hb.maint["e3"][-1]
-    assert entry["name"] == "front brakes" and "Parts installed: Front brake pads (D1089)" in entry["description"]
-    assert "Pads and rotors at 104k mi" in entry["description"] and "returned: floor jack" in entry["description"]
+    assert entry["name"] == "front brakes"
+    assert entry["description"].split("\n") == ["Mileage: 104,250", "Rotors were warped.",
+                                                 "Parts installed: Front brake pads (D1089)",
+                                                 "Rented or borrowed, returned: floor jack"]
+
+
+def test_job_done_reading_box_fits_the_thing():
+    assert torke._reading_label("vehicle") == "Mileage"
+    assert torke._reading_label("yard") == torke._reading_label("") == "Mileage or hours"
+    assert torke._reading_label("appliance") == ""
+    assert torke._reading("104250") == "Mileage: 104,250"
+    assert torke._reading("104,250 mi") == "Mileage: 104,250"
+    assert torke._reading("212 hours") == "Hours: 212"
+    assert torke._reading("168000 km") == "Mileage: 168,000 km"
+    assert torke._reading("about 104k") == "Mileage: about 104k"
+    assert torke._reading("  ") == ""
+    no_reading = torke._closeout_html("Bosch dishwasher", "drain pump", {"parts": [], "rented": [], "leftover": []}, "")
+    assert 'id="mi"' not in no_reading and '<textarea id="nt"' in no_reading and "Optional." in no_reading
+    hostile = torke._closeout_html('</script><b>x', "", {"parts": [], "rented": [], "leftover": []}, "Mileage")
+    assert "</script><b>" not in hostile
+
+
+def test_job_done_typed_notes_reach_the_message():
+    """Runs the card's own script: what's typed in the boxes goes into the Finish job message."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    html = torke._closeout_html("2012 Honda Civic", "front brakes", {"parts": [], "rented": [], "leftover": []})
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.set_content(html.replace("parent.postMessage(", "window.__sent.push(").replace(
+                "<head>", "<head><script>window.__sent=[];</script>"))
+            page.fill("#mi", "104,250")
+            page.fill("#nt", "Rotors were warped.\nNext time: new hardware clips.")
+            page.click("button.cta")
+            sent = page.evaluate("window.__sent.filter(m => m.type === 'input:prompt:submit')")
+            browser.close()
+    except Exception as e:  # no browser in this environment
+        pytest.skip(f"no browser: {e}")
+    assert sent[0]["text"] == ("Finish the job on 2012 Honda Civic: archive the parts, return the rentals, take the "
+                               "rest off the lists, and log it.\nMileage: 104,250\nNotes: Rotors were warped.\n"
+                               "Next time: new hardware clips.")
 
 
 def test_job_done_needs_homebox_and_write(tool, monkeypatch):
