@@ -74,6 +74,14 @@ Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side 
 - **Got it** on a tool moves it to your tools. On a rental, it marks it picked up for the job. On a part, it goes to the Parts shelf until it's installed; then it's archived and the job goes in the repair log.
 - **Returning rentals** comes up when the job is over, not before.
 
+## Job done
+
+<p align="center">
+  <img src="docs/card-job-done.png" width="640" alt="Job done card: parts to archive, tools to return, and items to take off the lists, with one Finish job button">
+</p>
+
+When you finish, tap **Job done** on the project card. TorKe shows everything to close out: the installed parts to archive, rented or borrowed tools to return, and anything still on the lists for that job. One tap on **Finish job** does all of it and writes the repair log with the part numbers.
+
 ## Manual sites
 
 All off by default:

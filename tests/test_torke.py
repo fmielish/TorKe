@@ -630,3 +630,40 @@ def test_rental_lifecycle(hbtool):
     assert jack["archived"]
     assert "still out" not in run(tool.log_repair("2012 Honda Civic", "Rotors", "x", __user__=USER))
     assert "Already in Homebox" in run(tool.save_my_tools(["Torque wrench 3/8"], __user__=USER))
+
+
+def test_job_done_closes_everything_in_one_press(hbtool):
+    tool, hb = hbtool
+    card, _ = body(run(tool.open_project("2012 Honda Civic", "front brakes", "vehicle", "Honda", "Civic", "2012",
+                                         __user__=USER, __chat_id__="j1")))
+    assert "Job done" in card and "The job is done: the 2012 Honda Civic (front brakes). Close it out." in card
+    run(tool.save_needed_parts([{"name": "Front brake pads", "part_number": "D1089"}, "Brake cleaner"],
+                               __user__=USER, __chat_id__="j1"))
+    run(tool.parts_arrived(["front brake pads"], __user__=USER))
+    run(tool.save_needed_tools(["floor jack"], rent=True, __user__=USER, __chat_id__="j1"))
+    run(tool.rental_picked_up(["floor jack"], __user__=USER))
+    run(tool.save_needed_tools(["breaker bar"], __user__=USER, __chat_id__="j1"))
+    run(tool.save_needed_parts(["Cabin air filter"], "air filter swap", "2012 Honda Civic", __user__=USER))  # other job
+    html, ctx = body(run(tool.complete_job(__user__=USER, __chat_id__="j1")))
+    assert "Parts to archive" in html and "Front brake pads" in html and "Part D1089" in html
+    assert "Tools to return" in html and "floor jack" in html
+    assert "Take off the lists" in html and "Brake cleaner" in html and "breaker bar" in html
+    assert "Cabin air filter" not in html
+    assert "Finish the job on 2012 Honda Civic: archive the parts, return the rentals" in html
+    out = run(tool.finish_job(notes="Pads and rotors at 104k mi", __user__=USER, __chat_id__="j1"))
+    assert "Parts archived: Front brake pads (D1089)" in out and "Returned: floor jack" in out
+    assert "Brake cleaner" in out and "breaker bar" in out and "Logged on 2012 Honda Civic" in out
+    for name in ("Front brake pads", "floor jack", "Brake cleaner", "breaker bar"):
+        assert hb.by_name(name)["archived"]
+    assert not hb.by_name("Cabin air filter")["archived"]
+    entry = hb.maint["e3"][-1]
+    assert entry["name"] == "front brakes" and "Parts installed: Front brake pads (D1089)" in entry["description"]
+    assert "Pads and rotors at 104k mi" in entry["description"] and "returned: floor jack" in entry["description"]
+
+
+def test_job_done_needs_homebox_and_write(tool, monkeypatch):
+    card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
+    assert "Job done" not in card
+    assert "Homebox isn't set up" in run(tool.complete_job("2012 Honda Civic", __user__=USER))
+    use_homebox(tool, monkeypatch, write=False)
+    assert "can only read Homebox" in run(tool.finish_job("2012 Honda Civic", "brakes", __user__=USER))

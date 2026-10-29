@@ -59,6 +59,7 @@ Each tool or part to get has "For" in its description, such as "For 2012 Honda C
 - **Tools:** the Tools card shows what you have and what's missing. A missing tool never stops the job: TorKe offers to rent or borrow it, a workaround with tools you have, or buying it. Missing tools go on your tools to get. A bought tool moves over to your tools. A rental counts as yours from pickup (Got it) until the job's done; then TorKe asks whether it's gone back and archives it.
 - **Parts:** parts you still need go on your parts to get. When they arrive, they move to the Parts shelf. Once installed (old ones tossed), they're archived and the job goes in the item's repair log with the part numbers.
 - **Shopping:** "What do I need to buy?" shows tools to get and parts to get side by side, with buy or rental links. The two lists stay separate.
+- **Job done:** the project card's **Job done** button shows what to close out: installed parts to archive, rented or borrowed tools to return, and anything left on the lists for that job. One tap on **Finish job** does it all and writes the repair log.
 
 **Manuals:** attach the PDF to the item in Homebox with the attachment type **Manual**. TorKe matches items by name, so name them the way people say them, such as "Bosch dishwasher SHE3AR75UC". TorKe reads text from PDFs; a manual that's only scanned pictures has no text, and TorKe says so.
 

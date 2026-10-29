@@ -74,8 +74,11 @@ async def build_cards(tmp: Path) -> dict:
         {"name": "Brake fluid, DOT 3"}], job, civic, __user__=user)
     await t.save_needed_parts(["Drain pump"], "Won't drain, error E24", "Bosch dishwasher SHE3AR75UC", __user__=user)
     shop, _ = await t.shopping_list(__user__=user)
+    await t.parts_arrived(["front brake pads", "front rotors"], __user__=user)
+    await t.rental_picked_up(["floor jack"], __user__=user)
+    done, _ = await t.complete_job(civic, job, __user__=user)
     return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode(),
-            "card-shopping": shop.body.decode()}
+            "card-shopping": shop.body.decode(), "card-job-done": done.body.decode()}
 
 
 async def main(out: Path):

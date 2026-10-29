@@ -1088,6 +1088,14 @@ ul.blades li:hover,ul.blades li:focus-within{filter:drop-shadow(0 0 7px rgba(92,
 .pic svg{width:58%;height:58%;stroke:var(--arc);fill:none;stroke-width:1.4;opacity:.85}
 .credit{font-size:13px;color:var(--steel);text-align:center;margin-top:8px;max-width:340px;justify-self:center}
 .right{display:grid}
+.done{all:unset;box-sizing:border-box;display:block;width:100%;margin-top:16px;cursor:pointer;padding:1px;background:var(--arc);
+ clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+.done span{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;font-size:17px;color:var(--ice);
+ background:linear-gradient(90deg,rgba(92,225,255,.16),rgba(92,225,255,.05)),var(--panel);
+ clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+.done svg{width:20px;height:20px;stroke:var(--arc);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.done:hover span,.done:focus-visible span{background:rgba(92,225,255,.22)}
+.done:focus-visible{outline:none}
 .strip{margin-top:16px;padding:10px 14px;border-left:3px solid var(--amber);background:rgba(255,179,71,.08);color:var(--ice);font-size:15px}
 .strip b{color:var(--amber);font-weight:600}
 @media (max-width:520px){.deck{grid-template-columns:1fr}.right{order:-1}.scope{max-width:260px}h1{font-size:24px}}
@@ -1141,7 +1149,7 @@ _PLACEHOLDERS = {
 }
 
 
-def _splash_html(p: dict, picture: dict, blades: list, hazards: list) -> str:
+def _splash_html(p: dict, picture: dict, blades: list, hazards: list, done_prompt: str = "") -> str:
     cat = p.get("category") if p.get("category") in _PLACEHOLDERS else "other"
     src = _safe_img(picture.get("src", ""))
     if src:
@@ -1176,6 +1184,11 @@ def _splash_html(p: dict, picture: dict, blades: list, hazards: list) -> str:
         names = ", ".join(h["name"] for h in hazards[:4])
         strip = f'<div class="strip"><b>Check the safety warnings first:</b> {_esc(names)}.</div>'
 
+    done = ""
+    if done_prompt:
+        prompts.append(done_prompt)
+        done = (f'<button type="button" class="done" onclick="ask(P[{len(prompts) - 1}])"><span>'
+                f'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>Job done</span></button>')
     job = p.get("problem") or "Tell TorKe what's wrong, or pick where to start."
     ring = (
         '<svg class="ring" viewBox="0 0 200 200" aria-hidden="true">'
@@ -1193,7 +1206,7 @@ def _splash_html(p: dict, picture: dict, blades: list, hazards: list) -> str:
         f'<header><div><h1>{_esc(p["item"])}</h1><p class="job">{_esc(job)}</p></div>{_MARK}</header>'
         f'<div class="deck"><ul class="blades">{"".join(items)}</ul>'
         f'<div class="right"><div class="scope">{ring}<div class="pic">{pic}</div></div>'
-        f'<p class="credit">{credit}</p></div></div>{strip}'
+        f'<p class="credit">{credit}</p></div></div>{strip}{done}'
         f'<p class="hint">Buttons send a request to TorKe. Open WebUI may ask you to confirm it.</p>'
         f'</section><script>const P={_js(prompts)};</script>{_SIZER}</body></html>'
     )
@@ -1377,6 +1390,43 @@ def _shopping_html(tools: list, parts: list, item: str) -> str:
         f'<p class="hint">Everything here is kept in Homebox. Links open in a new tab, and TorKe never buys anything. '
         f'Buttons send a request to TorKe, and Open WebUI may ask you to confirm it.</p>'
         f'</section><script>const P={_js(prompts)};</script>{_SIZER}</body></html>'
+    )
+
+
+def _closeout_html(item: str, job: str, c: dict) -> str:
+    def rows(entries, note_fn, empty):
+        if not entries:
+            return f'<li class="none">{empty}</li>'
+        return "".join(f'<li class="row need"><span class="mk" aria-hidden="true"></span><div>'
+                       f'<div class="tn">{_esc(e["name"])}</div>'
+                       + (f'<div class="tw">{_esc(note_fn(e))}</div>' if note_fn(e) else "") + "</div></li>"
+                       for e in entries)
+
+    def pn(e):
+        f = e.get("fields", {})
+        return f"Part {f['Part number']}" if f.get("Part number") else ""
+
+    prompt = f"Finish the job on {item}: archive the parts, return the rentals, take the rest off the lists, and log it."
+    left = ""
+    if c["leftover"]:
+        left = (f'<div class="panel"><div class="in"><h2>Take off the lists <span>{len(c["leftover"])}</span></h2>'
+                f'<ul class="rows">{rows(c["leftover"], lambda e: "No longer needed for this job", "")}</ul></div></div>')
+    return (
+        f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<style>{_HUD_CSS}{_TOOLS_CSS}{_SHOP_CSS}</style></head><body>'
+        f'<section class="hud tools shop" aria-label="Close out the job">'
+        f'<header><div><h1>Job done</h1><p class="job">{_esc(item)}{": " + _esc(job) if job else ""}</p></div>{_MARK}</header>'
+        f'<div class="cols"><div class="panel"><div class="in"><h2>Parts to archive <span>{len(c["parts"])}</span></h2>'
+        f'<p class="lead">Installed, old ones tossed. They stay in Homebox as parts history.</p>'
+        f'<ul class="rows">{rows(c["parts"], pn, "No parts on the shelf for this job.")}</ul></div></div>'
+        f'<div class="panel"><div class="in"><h2>Tools to return <span>{len(c["rented"])}</span></h2>'
+        f'<p class="lead">Rented or borrowed for this job.</p>'
+        f'<ul class="rows">{rows(c["rented"], lambda e: "", "Nothing rented or borrowed.")}</ul></div></div>{left}</div>'
+        f'<button type="button" class="cta" onclick="ask(P[0])"><span>Finish job: archive, return and log it</span></button>'
+        f'<p class="hint">One tap does it all and writes the repair log. Nothing is deleted; archived items can be '
+        f'restored in Homebox. Open WebUI may ask you to confirm.</p>'
+        f'</section><script>const P={_js([prompt])};</script>{_SIZER}</body></html>'
     )
 
 
@@ -1643,6 +1693,14 @@ class Tools:
         return not item or _overlap(item, e.get("description", "")) >= 0.5
 
     @staticmethod
+    def _for_job(e: dict, item: str, job: str) -> bool:
+        """For this item, and for this job when both the job and the entry's job are known."""
+        if not item or _overlap(item, e.get("description", "")) < 0.5:
+            return False
+        desc_job = e.get("description", "").split(":", 1)[1] if ":" in e.get("description", "") else ""
+        return not job or not desc_job.strip() or _overlap(job, desc_job) >= 0.5 or _overlap(desc_job, job) >= 0.5
+
+    @staticmethod
     def _desc(item: str, job: str) -> str:
         if item and job:
             return f"For {item}: {job}"
@@ -1787,7 +1845,8 @@ class Tools:
             + f"Hazards to cover: {', '.join(h['name'] for h in hazards) if hazards else 'none flagged beyond general rules'}. "
             "The user can see the card; don't repeat it. Ask the next useful question in a sentence or two."
         )
-        return _card(_splash_html(p, picture, blades, hazards), context)
+        done_prompt = f"The job is done: {thing}{job}. Close it out." if hb else ""
+        return _card(_splash_html(p, picture, blades, hazards, done_prompt), context)
 
     # ------------------------------------------------------------------ 2. videos
 
@@ -2909,6 +2968,119 @@ class Tools:
                    "Picked up a rental: rental_picked_up. Parts that arrived: parts_arrived. Installed parts: "
                    "use_parts, then log_repair.")
         return _card(_shopping_html(tools, parts, item), context)
+
+    # ------------------------------------------------------------------ 6b. job done
+
+    def _closeout(self, hb: _Homebox, item: str, job: str) -> dict:
+        lists = self._lists(hb)
+        f = lambda rows: [e for e in rows if self._for_job(e, item, job)]  # noqa: E731
+        parts = [_Homebox._norm(hb.detail(e["id"])) for e in f(lists["on_shelf"])]
+        return {"parts": parts, "rented": f(lists["rented"]),
+                "leftover": f(lists["tools_to_get"]) + f(lists["parts_to_get"])}
+
+    async def complete_job(
+        self,
+        item: str = "",
+        job: str = "",
+        __user__: Optional[dict] = None,
+        __chat_id__: Optional[str] = None,
+        __event_emitter__: Optional[Callable] = None,
+    ):
+        """
+        The job is done (the user said so or tapped Job done). Shows a card of everything to close out: parts
+        installed (to archive), rented or borrowed tools (to return), anything still on the lists for this job
+        (to take off), and the repair log entry, with one Finish job button. Call finish_job when they say yes.
+        :param item: what was fixed (the open project if empty)
+        :param job: the job (the open project if empty)
+        """
+        hb, msg = self._need_hb()
+        if not hb:
+            return msg
+        p = self._project(__chat_id__, __user__)
+        item = str(item or p.get("item", "")).strip()
+        job = str(job or p.get("problem", "")).strip()
+        if not item:
+            return "Ask what was fixed."
+        await _status(__event_emitter__, "Getting the close-out ready")
+        try:
+            c = await _run(self._closeout, hb, item, job)
+        except Exception as e:
+            return f"Homebox couldn't be read: {str(e)[:150]}"
+        await _status(__event_emitter__, "Ready to close out", True)
+        lines = (["Parts to archive (installed): " + (", ".join(e["name"] for e in c["parts"]) or "none"),
+                  "Rented or borrowed to return: " + (", ".join(e["name"] for e in c["rented"]) or "none"),
+                  "Still on the lists, to take off: " + (", ".join(e["name"] for e in c["leftover"]) or "none")])
+        context = (f"Close-out card shown for {item}{' (' + job + ')' if job else ''}.\n" + "\n".join(lines)
+                   + "\nDon't repeat it. Ask for anything worth adding to the repair log (mileage, what fixed it). "
+                     "When they tap Finish job or say yes, call finish_job with those notes. If they want to keep "
+                     "something, do the rest one by one instead.")
+        return _card(_closeout_html(item, job, c), context)
+
+    async def finish_job(
+        self,
+        item: str = "",
+        job: str = "",
+        notes: str = "",
+        __user__: Optional[dict] = None,
+        __chat_id__: Optional[str] = None,
+        __event_emitter__: Optional[Callable] = None,
+    ) -> str:
+        """
+        Close out a finished job in one go, after the user says yes (the Finish job button counts): archives the
+        installed parts, archives rented and borrowed tools as returned, takes anything left for this job off the
+        lists, and writes the repair log entry with the parts and part numbers. Nothing is deleted.
+        :param item: what was fixed (the open project if empty)
+        :param job: the job, used as the repair log title (the open project if empty)
+        :param notes: what was wrong and what fixed it, mileage, anything to remember next time (optional)
+        """
+        hb, msg = self._need_hb()
+        if not hb:
+            return msg
+        if self._cant_write():
+            return self._cant_write()
+        p = self._project(__chat_id__, __user__)
+        item = str(item or p.get("item", "")).strip()
+        job = str(job or p.get("problem", "")).strip()
+        if not item:
+            return "Ask what was fixed."
+        await _status(__event_emitter__, "Closing out the job")
+        done = {"parts": [], "rented": [], "leftover": []}
+        try:
+            c = await _run(self._closeout, hb, item, job)
+            for e in c["parts"]:
+                await _run(self._edit, hb, e, quantity=0, archived=True, remove_tags=(self.valves.homebox_to_get_tag,))
+                pn = e.get("fields", {}).get("Part number", "")
+                done["parts"].append(e["name"] + (f" ({pn})" if pn else ""))
+            for k in ("rented", "leftover"):
+                for e in c[k]:
+                    await _run(self._edit, hb, e, quantity=0, archived=True)
+                    done[k].append(e["name"])
+        except Exception as e:
+            return f"Homebox couldn't be updated partway through: {str(e)[:150]}. Done so far: {done}"
+        details = "\n".join(x for x in (
+            str(notes or "").strip(),
+            ("Parts installed: " + ", ".join(done["parts"])) if done["parts"] else "",
+            ("Rented or borrowed, returned: " + ", ".join(done["rented"])) if done["rented"] else "") if x)
+        logged = ""
+        try:
+            ent = await _run(hb.find, item)
+            if ent:
+                await _run(hb.add_maintenance, ent["id"], {"name": (job or "Repair")[:120], "description": details[:4000],
+                                                           "completedDate": datetime.date.today().isoformat()})
+                logged = f"Logged on {ent['name']}."
+            else:
+                logged = f"'{item}' isn't in Homebox, so the repair log entry wasn't written."
+        except Exception as e:
+            logged = f"The repair log entry couldn't be written ({str(e)[:100]})."
+        await _status(__event_emitter__, "Job closed out", True)
+        out = ["Job closed out."]
+        if done["parts"]:
+            out.append(f"Parts archived: {', '.join(done['parts'])}.")
+        if done["rented"]:
+            out.append(f"Returned: {', '.join(done['rented'])}.")
+        if done["leftover"]:
+            out.append(f"Taken off the lists: {', '.join(done['leftover'])}.")
+        return " ".join(out + [logged])
 
     # ------------------------------------------------------------------ 7. repair log (Homebox maintenance log)
 
