@@ -709,6 +709,53 @@ def test_job_done_typed_notes_reach_the_message():
                                "Next time: new hardware clips.")
 
 
+def test_job_done_touchscreen_pads():
+    """A garage screen (touch, no phone keyboard) gets built-in pads; a phone uses its own keyboard."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    html = torke._closeout_html("2012 Honda Civic", "front brakes", {"parts": [], "rented": [], "leftover": []})
+    html = html.replace("parent.postMessage(", "window.__sent.push(").replace(
+        "<head>", "<head><script>window.__sent=[];</script>")
+    errors, got = [], {}
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            ctx = browser.new_context(viewport={"width": 1024, "height": 800}, has_touch=True)
+            page = ctx.new_page()
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.set_content(html)
+            page.tap("#mi")
+            got["kiosk"] = (page.is_visible("#pop"), page.is_visible("#pad"), page.get_attribute("#pmi", "inputmode"))
+            for k in "104250":
+                page.tap(f'#pad .k[data-k="{k}"]')
+            page.tap('#pad .k[data-k="Done"]')
+            page.tap("#nt")
+            for k in "new clips.":
+                page.tap(f'#pad .k[data-k="{k}"]')
+            page.tap('#pad .k[data-k=" "]')
+            page.tap('#pad .k[data-k="o"]')
+            page.tap('#pad .k[data-k="⌫"]')
+            page.tap('#pad .k[data-k="k"]')
+            page.tap("#popdone")
+            page.tap("button.cta")
+            got["sent"] = page.evaluate("window.__sent.filter(m => m && m.type === 'input:prompt:submit')[0].text")
+            ctx.close()
+            ctx = browser.new_context(**p.devices["iPhone 13"])
+            page = ctx.new_page()
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.set_content(html)
+            page.tap("#mi")
+            got["phone"] = (page.is_visible("#pop"), page.is_visible("#pad"), page.get_attribute("#pmi", "inputmode"))
+            browser.close()
+    except Exception as e:  # no browser in this environment
+        pytest.skip(f"no browser: {e}")
+    assert not errors
+    assert got["kiosk"] == (True, True, "none")  # pop-up with built-in number pad, device keyboard held back
+    assert got["phone"] == (True, False, "numeric")  # pop-up with the phone's own number pad
+    assert got["sent"].endswith("\nMileage: 104,250\nNotes: New clips. K")
+
+
 def test_job_done_needs_homebox_and_write(tool, monkeypatch):
     card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
     assert "Job done" not in card

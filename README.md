@@ -80,7 +80,7 @@ Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side 
   <img src="docs/card-job-done.png" width="640" alt="Job done card: parts to archive, tools to return, items to take off the lists, mileage and notes boxes, and one Finish job button">
 </p>
 
-When you finish, tap **Job done** on the project card. TorKe shows everything to close out: the installed parts to archive, rented or borrowed tools to return, and anything still on the lists for that job. Type the mileage and any notes if you like (what was wrong, what fixed it, anything for next time). One tap on **Finish job** does all of it and writes the repair log with the date, mileage, notes and part numbers.
+When you finish, tap **Job done** on the project card. TorKe shows everything to close out: the installed parts to archive, rented or borrowed tools to return, and anything still on the lists for that job. Type the mileage and any notes if you like (what was wrong, what fixed it, anything for next time). On a touchscreen, tapping either box pops up a bigger one: phones and tablets use their own keyboard (the number pad for mileage), and a garage or wall screen gets a number pad and a typing pad built into the card. One tap on **Finish job** does all of it and writes the repair log with the date, mileage, notes and part numbers.
 
 ## Manual sites
 

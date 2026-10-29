@@ -1403,15 +1403,94 @@ _CLOSE_CSS = """
 .fld input:focus,.fld textarea:focus{outline:none;border-color:var(--arc);box-shadow:inset 0 0 0 1px var(--arc)}
 .fld ::placeholder{color:var(--steel);opacity:.75}
 .fields.one{grid-template-columns:1fr}
-@media (max-width:560px){.fields{grid-template-columns:1fr}}
+[hidden]{display:none!important}
+.scrim{position:absolute;inset:0;background:rgba(2,8,14,.74);z-index:2}
+.pop{position:relative;z-index:3;margin-top:18px;filter:drop-shadow(0 0 14px rgba(92,225,255,.45))}
+.pop>.pin{padding:1px;background:var(--arc);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+.pop .in{background:#071827;padding:14px 16px 16px;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+.pophead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+.pophead h2{font-size:19px;font-weight:400;color:var(--arc)}
+.popacts{display:flex;align-items:center;gap:16px}
+.done2{all:unset;cursor:pointer;padding:7px 18px;border:1px solid var(--amber);color:var(--ice);font-size:16px;background:rgba(255,179,71,.12)}
+.done2:focus-visible{outline:2px solid var(--arc);outline-offset:3px}
+.pop input,.pop textarea{font:inherit;font-size:20px;color:var(--ice);background:var(--abyss);border:1px solid var(--arc);border-radius:0;
+ padding:10px 12px;width:100%;line-height:1.35;outline:none}
+.pop textarea{min-height:150px;resize:none}
+.pop input{font-size:26px;letter-spacing:.04em;text-align:right;max-width:360px;display:block;margin:0 auto}
+.pad{display:grid;gap:6px;margin-top:12px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.pad.num{max-width:360px;margin-left:auto;margin-right:auto}
+.kr{display:flex;gap:6px}
+.k{all:unset;box-sizing:border-box;flex:1;min-width:0;height:50px;display:grid;place-items:center;cursor:pointer;
+ background:var(--panel-2);border:1px solid var(--line);color:var(--ice);font-size:19px}
+.k:active{background:rgba(92,225,255,.28);border-color:var(--arc)}
+.k.fn{color:var(--arc);font-size:17px}
+.k.sp{flex:4;font-size:15px;color:var(--steel)}
+.k.on{background:rgba(92,225,255,.22);border-color:var(--arc)}
+.pad.num .k{height:60px;font-size:26px}
+.k.ok{color:var(--amber);border-color:var(--amber);font-size:19px}
+@media (max-width:560px){.fields{grid-template-columns:1fr}.kr{gap:4px}.pad{gap:4px}.k{height:46px;font-size:17px}
+ .pop .in{padding:12px 10px 14px}}
 """
 
-_FINISH_JS = """<script>
-// VERIFY: typing in these boxes inside Open WebUI's sandboxed card frame (no form is submitted; the button reads them)
-function finish(){
- var m=document.getElementById('mi'),n=document.getElementById('nt'),t=P[0];
- var mv=m?m.value.trim():'',nv=n?n.value.trim().replace(/\\n{3,}/g,'\\n\\n'):'';
- if(mv)t+='\\n'+L+': '+mv;if(nv)t+='\\nNotes: '+nv;ask(t)}
+# The Job done card's script. On a touchscreen, tapping Mileage or Notes pops up a bigger box. Phones and tablets
+# use their own keyboard (the number pad for mileage); other touchscreens (a garage or wall screen) get number and
+# typing pads built into the card. A button in the pop-up switches between the two in case the guess is wrong.
+_FINISH_JS = r"""<script>
+// VERIFY: typing in these boxes inside Open WebUI's sandboxed card frame (no form is submitted; the button reads them),
+// and the keyboard guess on your own phone and garage screen.
+(function(){
+var UA=navigator.userAgent||'',TP=navigator.maxTouchPoints||0;
+var MOB=/Android|iPhone|iPad|iPod|Mobile/i.test(UA)||(/Macintosh/.test(UA)&&TP>1);
+var TOUCH=TP>0||(window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+var KEYS=TOUCH&&!MOB,cur=null,shift=false;
+var NUM=[['1','2','3'],['4','5','6'],['7','8','9'],['⌫','0','Done']];
+var TXT=[['1','2','3','4','5','6','7','8','9','0'],['q','w','e','r','t','y','u','i','o','p'],
+ ['a','s','d','f','g','h','j','k','l',"'"],['⇧','z','x','c','v','b','n','m','⌫'],
+ ['-','/','$','#',' ',',','.','↵']];
+var NAMES={' ':'Space','⌫':'Delete','⇧':'Shift','↵':'New line'};
+function $(i){return document.getElementById(i)}
+function field(){return cur==='mi'?$('pmi'):$('pnt')}
+function miles(v){var d=String(v).replace(/\D/g,'').slice(0,7);return d?Number(d).toLocaleString('en-US'):''}
+function upNext(f){var b=f.value.slice(0,f.selectionStart==null?f.value.length:f.selectionStart);
+ return !b.trim()||/[.!?]\s+$/.test(b)||/\n\s*$/.test(b)}
+function caps(){var f=field(),up=cur==='nt'&&(shift||upNext(f));
+ document.querySelectorAll('#pad .k').forEach(function(b){var k=b.getAttribute('data-k');
+  if(/^[a-z]$/.test(k))b.textContent=up?k.toUpperCase():k;if(k==='⇧')b.classList.toggle('on',shift)})}
+function draw(){var rows=cur==='mi'?NUM:TXT,pad=$('pad');pad.className='pad '+(cur==='mi'?'num':'txt');pad.textContent='';
+ rows.forEach(function(r){var row=document.createElement('div');row.className='kr';
+  r.forEach(function(k){var b=document.createElement('button');b.type='button';b.tabIndex=-1;b.setAttribute('data-k',k);
+   b.className='k'+(k===' '?' sp':'')+(NAMES[k]?' fn':'')+(k==='Done'?' ok':'');
+   if(NAMES[k])b.setAttribute('aria-label',NAMES[k]);b.textContent=k===' '?'space':k;row.appendChild(b)});
+  pad.appendChild(row)});caps()}
+function keys(on){KEYS=on;var f=field();f.setAttribute('inputmode',on?'none':(cur==='mi'?'numeric':'text'));
+ $('pad').hidden=!on;$('keys').textContent=on?'Use device keyboard':'Show on-screen keys';f.blur();f.focus();
+ try{f.setSelectionRange(f.value.length,f.value.length)}catch(e){}reportHeight()}
+function open(kind){cur=kind;var f=field();$('pmi')&&($('pmi').hidden=kind!=='mi');$('pnt').hidden=kind!=='nt';
+ $('popt').textContent=kind==='mi'?L:'Notes';f.value=$(kind).value;shift=false;
+ $('logbox').hidden=true;$('pop').hidden=false;$('scrim').hidden=false;draw();keys(KEYS);
+ try{$('pop').scrollIntoView({block:'nearest'})}catch(e){}}
+function close(){if(!cur)return;var f=field();$(cur).value=cur==='mi'?f.value.trim():f.value.replace(/\s+$/,'');
+ $('pop').hidden=true;$('scrim').hidden=true;$('logbox').hidden=false;cur=null;reportHeight()}
+function press(k){var f=field();if(k==='Done'){close();return}
+ if(k==='⇧'){shift=!shift;caps();return}
+ var s=f.selectionStart==null?f.value.length:f.selectionStart,e=f.selectionEnd==null?s:f.selectionEnd;
+ if(k==='⌫'){if(s===e&&s>0)s--;f.setRangeText('',s,e,'end')}
+ else{var c=k==='↵'?'\n':k;if(/^[a-z]$/.test(c)&&(shift||upNext(f)))c=c.toUpperCase();
+  f.setRangeText(c,s,e,'end');shift=false}
+ if(cur==='mi'){f.value=miles(f.value);f.setSelectionRange(f.value.length,f.value.length)}
+ caps()}
+if(TOUCH){['mi','nt'].forEach(function(id){var x=$(id);if(!x)return;x.readOnly=true;
+ x.addEventListener('click',function(){open(id)})})}
+$('pad').addEventListener('pointerdown',function(e){if(e.target.closest('.k'))e.preventDefault()});
+$('pad').addEventListener('click',function(e){var b=e.target.closest('.k');if(b)press(b.getAttribute('data-k'))});
+$('keys').addEventListener('click',function(){keys(!KEYS)});
+$('popdone').addEventListener('click',close);$('scrim').addEventListener('click',close);
+document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+document.addEventListener('selectionchange',function(){if(cur==='nt')caps()});
+window.finish=function(){close();var m=$('mi'),n=$('nt'),t=P[0];
+ var mv=m?m.value.trim():'',nv=n?n.value.trim().replace(/\n{3,}/g,'\n\n'):'';
+ if(mv)t+='\n'+L+': '+mv;if(nv)t+='\nNotes: '+nv;ask(t)};
+})();
 </script>"""
 
 
@@ -1456,11 +1535,21 @@ def _closeout_html(item: str, job: str, c: dict, reading: str = "Mileage") -> st
         left = (f'<div class="panel"><div class="in"><h2>Take off the lists <span>{len(c["leftover"])}</span></h2>'
                 f'<ul class="rows">{rows(c["leftover"], lambda e: "No longer needed for this job", "")}</ul></div></div>')
     mile = (f'<label class="fld" for="mi"><span>{_esc(reading)}</span><input id="mi" type="text" inputmode="numeric" '
-            f'maxlength="30" autocomplete="off" placeholder="{"Odometer" if reading == "Mileage" else "Odometer or hour meter"}">'
+            f'pattern="[0-9]*" maxlength="30" autocomplete="off" placeholder="{"Odometer" if reading == "Mileage" else "Odometer or hour meter"}">'
             f'</label>'
             if reading else "")
+    pop_mile = ('<input id="pmi" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="30" autocomplete="off" '
+                'aria-label="Mileage" hidden>' if reading else "")
+    pop = (
+        f'<div class="pop" id="pop" role="dialog" aria-modal="true" aria-labelledby="popt" hidden><div class="pin">'
+        f'<div class="in"><div class="pophead"><h2 id="popt">Notes</h2><div class="popacts">'
+        f'<button type="button" class="mini" id="keys">Show on-screen keys</button>'
+        f'<button type="button" class="done2" id="popdone">Done</button></div></div>{pop_mile}'
+        f'<textarea id="pnt" maxlength="1500" aria-label="Notes" hidden></textarea>'
+        f'<div class="pad" id="pad" hidden></div></div></div></div>'
+    )
     logbox = (
-        f'<div class="panel logbox"><div class="in"><h2>Repair log</h2>'
+        f'<div class="panel logbox" id="logbox"><div class="in"><h2>Repair log</h2>'
         f'<p class="lead">Saved with the parts and the date. {"Both optional" if reading else "Optional"}.</p>'
         f'<div class="fields{"" if reading else " one"}">{mile}'
         f'<label class="fld" for="nt"><span>Notes</span><textarea id="nt" rows="3" maxlength="1500" '
@@ -1478,7 +1567,7 @@ def _closeout_html(item: str, job: str, c: dict, reading: str = "Mileage") -> st
         f'<div class="panel"><div class="in"><h2>Tools to return <span>{len(c["rented"])}</span></h2>'
         f'<p class="lead">Rented or borrowed for this job.</p>'
         f'<ul class="rows">{rows(c["rented"], lambda e: "", "Nothing rented or borrowed.")}</ul></div></div>{left}</div>'
-        f'{logbox}'
+        f'{logbox}{pop}<div class="scrim" id="scrim" hidden></div>'
         f'<button type="button" class="cta" onclick="finish()"><span>Finish job: archive, return and log it</span></button>'
         f'<p class="hint">One tap does it all and writes the repair log. Nothing is deleted; archived items can be '
         f'restored in Homebox. Open WebUI may ask you to confirm.</p>'
