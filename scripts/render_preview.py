@@ -61,7 +61,15 @@ async def build_cards(tmp: Path) -> dict:
     tools, _ = await t.check_tools(["torque wrench", "14 mm socket", "17 mm socket", "C-clamp or caliper piston tool",
                                     "jack stands", "floor jack", "wire brush"], "Front brake pads and rotors",
                                    "2012 Honda Civic", __user__=owner)
-    return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode()}
+    await t.save_needed_parts([
+        {"name": "Front brake pads, ceramic", "part_number": "D1089", "link": "https://www.example.com/pads",
+         "price": "$42.99", "store": "Parts store"},
+        {"name": "Front rotors", "qty": 2, "price": "$38.50"},
+        {"name": "Brake fluid, DOT 3"}], "Front brake pads and rotors", "2012 Honda Civic", __user__=owner)
+    await t.save_needed_parts(["Drain pump"], "Won't drain, error E24", "Bosch dishwasher SHE3AR75UC", __user__=owner)
+    shop, _ = await t.shopping_list(__user__=owner)
+    return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode(),
+            "card-shopping": shop.body.decode()}
 
 
 async def main(out: Path):

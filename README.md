@@ -19,7 +19,7 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 |---|---|---|
 | **Manuals** | Reads your own manual (attached to the item in Homebox or in the chat), then finds manuals and guides on the sites you turn on | A web search link |
 | **Videos** | Shows YouTube how-to videos as cards you can tap | A YouTube search link. Real results with SearXNG or a YouTube API key |
-| **Parts** | Finds where to buy each part, matched to your model | Search links. Optional parts list in Home Assistant |
+| **Parts** | Finds where to buy each part, matched to your model, and keeps your parts list | Search links and a parts list. Optional copy in Home Assistant |
 | **Tools you'll need** | Finds the job's tools in its manual and shows what you have and what you need | Assumes a basic 100-piece tool kit, a 100-piece socket set and a multimeter |
 | **Safety warnings** | Built-in rules for hazards like lifting a car, brakes, airbags, fuel, house wiring, gas and refrigerant, plus optional US recall checks | Built-in rules |
 | **Repair log** | Keeps each person's finished jobs on your server | Off |
@@ -47,6 +47,17 @@ TorKe keeps two lists for each person:
 
 When there's a manual for the job (a PDF attached to the item in Homebox or in the chat, or an iFixit guide), TorKe reads the tools from it. It always asks before saving anything to a list. It never assumes a torque wrench, jack stands or specialty tools.
 
+## Shopping list
+
+<p align="center">
+  <img src="docs/card-shopping.png" width="640" alt="Shopping list card: tools to get on the left, parts to get on the right, each with a Buy or Find it link and a Got it button">
+</p>
+
+Parts you still need, like new brake pads, go on your parts list with the part number, a buy link and the price. Ask "What do I need to buy?" and TorKe shows tools to get and parts to get side by side. The two lists stay separate.
+
+- **Buy / Find it** opens the store page, or a search when there's no link saved. TorKe never buys anything.
+- **Got it** on a tool saves it to your tools. On a part, it just comes off the list: you put it on, toss the old one, and the repair log notes it.
+
 ## Manual sites
 
 All off by default:
@@ -64,7 +75,7 @@ All off by default:
 - **No outside fonts, scripts or tracking.** Cards are self-contained.
 - **Pictures, when turned on,** load from the site they came from, so that site sees the request.
 - **Searches** go through your own SearXNG if you set one. Otherwise TorKe gives you links to open yourself.
-- **The repair log and tool lists** stay on your Open WebUI server.
+- **The repair log, tool lists and parts list** stay on your Open WebUI server.
 - **Homebox:** TorKe only adds new tools, when you allow it. It never changes or deletes anything there.
 
 ## Safety
@@ -73,7 +84,7 @@ TorKe points you to the manual and tells you when a job is for a professional, b
 
 ## Status
 
-Version 0.2.0 is a draft. It passes its offline tests but hasn't been tested in a live Open WebUI yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.3.0 is a draft. It passes its offline tests but hasn't been tested in a live Open WebUI yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 

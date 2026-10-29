@@ -206,10 +206,10 @@ def test_stop_rules_come_first(tool):
     assert out.startswith("STOP:")
 
 
-def test_parts_links_and_list_off(tool):
+def test_parts_links_and_no_brand_note(tool):
     out = run(tool.find_parts(["drain pump W10348269"], "Whirlpool dishwasher", __user__=USER))
     assert "amazon.com/s?k=drain+pump+W10348269" in out
-    assert "parts list is off" in run(tool.add_to_parts_list([{"name": "pump"}], "dishwasher", __user__=USER))
+    assert "quality brand" not in out and "save_needed_parts" in out
 
 
 def test_repair_log(tool):
@@ -286,11 +286,14 @@ def test_playlist_success(tool, monkeypatch):
 def test_parts_list_webhook(tool, monkeypatch):
     sent = []
     monkeypatch.setattr(torke, "_http", lambda url, **kw: sent.append(json.loads(kw["data"])) or "")
+    out = run(tool.save_needed_parts(["drain pump"], "won't drain", "Whirlpool dishwasher", __user__=USER))
+    assert "Added to your parts list: drain pump" in out and not sent  # kept by TorKe; HA off by default
     tool.valves.parts_list = True
     tool.valves.parts_webhook_url = "http://ha:8123/api/webhook/x"
-    out = run(tool.add_to_parts_list(["drain pump", {"name": "clamp", "link": "javascript:x", "qty": 2}],
-                                     "dishwasher", __user__=USER))
-    assert "Added 2 part(s)" in out and sent[0]["parts"][1]["link"] == ""
+    out = run(tool.save_needed_parts([{"name": "clamp", "link": "javascript:x", "qty": 2, "part_number": "W1"}],
+                                     "won't drain", "Whirlpool dishwasher", __user__=USER))
+    assert "Sent to Home Assistant" in out
+    assert sent[0]["parts"] == [{"name": "clamp (W1)", "link": "", "store": "", "price": "", "qty": 2}]
 
 
 def test_photo_read_from_upload_record(tmp_path):
@@ -521,3 +524,36 @@ def test_open_project_survives_restart(tool):
                           __user__=USER, __chat_id__="c42"))
     torke._PROJECTS.clear()  # what a restart does
     assert "Bosch SHE3AR75UC" in run(tool.find_manuals(__user__=USER, __chat_id__="c42"))
+
+
+# ---------------------------------------------------------------- parts list and shopping card (v0.3)
+
+def test_shopping_card_and_got_it(tool):
+    run(tool.open_project("2012 Honda Civic", "front brakes", "vehicle", "Honda", "Civic", "2012",
+                          __user__=USER, __chat_id__="s1"))
+    run(tool.save_needed_tools(["jack stands"], __user__=USER, __chat_id__="s1"))
+    out = run(tool.save_needed_parts([
+        {"name": "Front brake pads", "part_number": "D1089", "link": "https://www.rockauto.com/x",
+         "price": "$42.99", "store": "RockAuto"},
+        {"name": "Brake fluid DOT 3", "qty": 2}], __user__=USER, __chat_id__="s1"))
+    assert "Front brake pads, Brake fluid DOT 3" in out
+    assert "Already listed" in run(tool.save_needed_parts(["Front brake pads"], __user__=USER, __chat_id__="s1"))
+    html, ctx = body(run(tool.shopping_list(__user__=USER)))
+    assert "Tools to get" in html and "Parts to get" in html and "1 tool, 2 parts" in html
+    assert 'href="https://www.rockauto.com/x"' in html and ">Buy<" in html and ">Find it<" in html
+    assert "Part D1089. $42.99 at RockAuto" in html and "Brake fluid DOT 3 x2" in html
+    assert "I got this part: Front brake pads. Take it off my parts list." in html
+    assert "I got this tool: jack stands. Save it to my tools." in html
+    assert "#D1089" in ctx and "remove_needed_parts" in ctx
+    card, _ = body(run(tool.open_project("2012 Honda Civic", __user__=USER)))
+    assert "2 on your list" in card and "1 needed" in card
+    assert "Took 1" in run(tool.remove_needed_parts(["front brake pads"], __user__=USER))
+    html, _ = body(run(tool.shopping_list("Bosch dishwasher", __user__=USER)))
+    assert html.count("Nothing to get.") == 2
+
+
+def test_shopping_card_escapes(tool):
+    run(tool.save_needed_parts([{"name": "<img src=x onerror=alert(1)>", "link": 'https://x.example/"onclick=1'}],
+                               __user__=USER))
+    html, _ = body(run(tool.shopping_list(__user__=USER)))
+    assert "<img src=x" not in html and '"onclick=1' not in html

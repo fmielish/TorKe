@@ -48,7 +48,7 @@ Open **Workspace > Tools > TorKe > gear**. Every switch starts off.
 | Repair log | Each person's finished jobs, saved on the server | Nothing (section 9) |
 | Homebox | Homebox becomes the list of tools people own, and TorKe reads manuals attached to items | Homebox address and an API key or login (section 6) |
 | Let TorKe add new tools to Homebox | Saves tools people tell TorKe about into Homebox, after they confirm. Never changes or deletes existing items. | Homebox |
-| Parts list | Sends parts to Home Assistant, for example a to-do list | A Home Assistant webhook (section 7) |
+| Parts in Home Assistant | Also sends parts to Home Assistant, for example a to-do list. TorKe always keeps its own parts list. | A Home Assistant webhook (section 7) |
 | Needed tools in Home Assistant | Sends needed tools to their own Home Assistant list, separate from parts | A second webhook (section 8) |
 | YouTube playlist | Each person can add videos to their own playlist | Each person's Google sign-in (section 5) |
 | Most results | Results per search, 3 to 10 | |
@@ -101,6 +101,12 @@ To work out a job's tools, TorKe reads the manual for the job when there is one:
 
 TorKe reads text from PDFs. A manual that's only scanned pictures has no text to read, and TorKe says so.
 
+## Parts and the shopping list
+
+TorKe also keeps a **parts list** for each person: parts they still need for a job, like new brake pads, with the part number, a buy link and the price. Parts aren't kept as inventory. Once a part is installed it's done, and the repair log notes it.
+
+Ask TorKe "What do I need to buy?" to see the **Shopping list** card: tools to get and parts to get side by side, with a **Buy** link (or **Find it**, a web search, when no link was saved) and a **Got it** button. Got it on a tool saves it to their tools; on a part, it takes it off the list. The tools and parts lists stay separate.
+
 ## 6. Homebox (optional)
 
 With Homebox on, Homebox is the main list of tools people own, and TorKe reads manuals attached to the things being fixed.
@@ -112,9 +118,9 @@ With Homebox on, Homebox is the main list of tools people own, and TorKe reads m
 
 Homebox 0.26 (June 2026) replaced its "items" API with a new "entities" API. TorKe works with both, but try a lookup and a manual once after setup.
 
-## 7. Parts list in Home Assistant (optional)
+## 7. Parts in Home Assistant (optional)
 
-TorKe can send the parts a person wants to a Home Assistant webhook. It never buys anything. This automation adds each part to a to-do list named `todo.parts`:
+TorKe always keeps its own parts list. It can also send the parts a person adds to a Home Assistant webhook. It never buys anything. This automation adds each part to a to-do list named `todo.parts`:
 
 ```yaml
 alias: TorKe parts list
@@ -135,7 +141,7 @@ actions:
             description: "{{ trigger.json.job }} {{ repeat.item.store }} {{ repeat.item.price }} {{ repeat.item.link }}"
 ```
 
-Put `http://<home-assistant>:8123/api/webhook/<your webhook id>` in **Parts webhook address**, then turn on **Parts list**. Treat the webhook ID like a password.
+Put `http://<home-assistant>:8123/api/webhook/<your webhook id>` in **Parts webhook address**, then turn on **Parts in Home Assistant**. Treat the webhook ID like a password. Items you tick off in Home Assistant don't come off TorKe's list; tap **Got it** on the Shopping list card or tell TorKe.
 
 ## 8. Needed tools in Home Assistant (optional)
 
@@ -169,6 +175,7 @@ Each person's files are kept in `<DATA_DIR>/torke/` on the Open WebUI server. In
 - `repair-log-<user id>.json`: finished jobs, when **Repair log** is on.
 - `tools-owned-<user id>.json`: tools they told TorKe about, when they aren't saved to Homebox.
 - `tools-needed-<user id>.json`: the needed tools list.
+- `parts-needed-<user id>.json`: the parts list.
 - `projects-<user id>.json`: the open project in each chat, so a restart doesn't forget it.
 
 Settings each person fills in (their tools box, YouTube sign-in) are saved with their Open WebUI account, so they enter them once.
@@ -190,7 +197,7 @@ To skip the confirmation, an admin can turn on **Settings > Interface > iframe S
 
 ## Things to verify on your setup
 
-TorKe 0.2.0 passed its offline tests but hasn't yet been tested in a live Open WebUI. These parts depend on outside services or Open WebUI internals, so try them once. They're marked `VERIFY` in the code.
+TorKe 0.3.0 passed its offline tests but hasn't yet been tested in a live Open WebUI. These parts depend on outside services or Open WebUI internals, so try them once. They're marked `VERIFY` in the code.
 
 - **iFixit:** the search endpoint and guide field names.
 - **Attached photos:** that a photo attached in the chat shows on the project card.
