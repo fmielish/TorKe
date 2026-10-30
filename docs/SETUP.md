@@ -177,11 +177,14 @@ Put the addresses (`http://<home-assistant>:8123/api/webhook/<id>`) in **Parts w
 ## 9. What TorKe keeps outside Homebox
 
 - **Each person's settings** (starter kit switches, YouTube sign-in), saved with their Open WebUI account.
+- **Each person's saved look** (dark or light, and the color), in `<DATA_DIR>/torke/theme-<user id>.json`. Without one, cards open dark and cyan.
 - **The open project in each chat,** in `<DATA_DIR>/torke/projects-<user id>.json` on the Open WebUI server, so a restart doesn't forget what you were working on. In the Docker image that's under `/app/backend/data`.
 
 ## 10. The buttons and the confirmation prompt
 
 The buttons on TorKe's cards send a message to the chat. Open WebUI shows these cards in a locked-down frame, so it asks you to confirm before a button sends anything. That's the safe default.
+
+The theme button works differently: choosing a look changes the card right away, inside the card. **Save as my look** is the one part that sends a message ("Save my TorKe theme: light, green"), because the card frame can't store anything itself; TorKe then saves it with the person's account. People can also just ask TorKe for a look.
 
 To skip the confirmation, an admin can turn on **Settings > Interface > iframe Sandbox Allow Same Origin**. That gives every card in Open WebUI, from any tool, access to the page it's on, so leave it off unless you trust all your tools.
 
@@ -198,7 +201,7 @@ To skip the confirmation, an admin can turn on **Settings > Interface > iframe S
 
 ## Things to verify on your setup
 
-TorKe 0.5.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
+TorKe 0.6.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
 
 - **Homebox updates:** that changing an item (moving a tool to "owned", putting a part on the shelf, archiving) keeps its other details. TorKe sends back everything it read, but Homebox's notes don't spell out how its update works.
 - **Homebox sign-in:** that an API key works as a bearer token.
@@ -206,6 +209,7 @@ TorKe 0.5.0 passed its offline tests, including against a stand-in Homebox for b
 - **Attached photos:** that a photo attached in the chat shows on the project card.
 - **Buttons:** the confirmation behavior of card buttons.
 - **Job done boxes:** that you can type in the Mileage and Notes boxes inside Open WebUI's card frame, that what you typed shows in the Finish job message, and that the keyboard guess is right on your phone and on any garage or wall screen.
+- **Theme button:** that the theme popup opens and changes the card inside Open WebUI's frame, that **Save as my look** sends its message, and that the saved look shows on the next card.
 - **iFixit:** the search endpoint and guide field names.
 - **Model file:** importing `torke-model.json`.
 - **Recall checks:** the CPSC manufacturer filter.

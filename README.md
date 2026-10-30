@@ -26,6 +26,8 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 
 **Homebox is required** for tools, parts and the repair log. Most other options start **off**; each one is a switch in the tool's settings, so you choose what TorKe can reach.
 
+**Themes.** Every card has a theme button in its top corner: dark or light, in cyan, green, violet or red. The change shows right away, and **Save as my look** keeps it for that person, so their cards open that way next time.
+
 ## Install
 
 1. In Open WebUI, open **Workspace > Tools**, select **+**, paste [`torke.py`](torke.py), name it **TorKe** (tool ID `torke`) and save.
@@ -108,7 +110,7 @@ TorKe points you to the manual and tells you when a job is for a professional, b
 
 ## Status
 
-Version 0.5.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.6.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 
