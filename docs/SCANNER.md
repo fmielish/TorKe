@@ -2,6 +2,8 @@
 
 TorKe can read the trouble codes your car has stored (the ones behind the check engine light, like `P0301`) and help you work out what to do about them. It only **reads**. It can't clear codes or send anything to the car, and there's no setting that changes that.
 
+**Live scanning is switched off for now ("coming soon").** The settings are there but greyed out in name and do nothing, because no adapter has been tried yet. Typing codes into the chat works today. When an adapter is on hand, flipping `SCANNER_FEED_READY` in `torke.py` to `True` turns live reading on.
+
 Version 0.7.0 builds this and passes its offline tests against a stand-in for the adapter library. It hasn't been tried with a real adapter or car yet; the list at the end says what to check first.
 
 ## How it fits together

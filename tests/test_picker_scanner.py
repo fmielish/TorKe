@@ -181,6 +181,7 @@ CODES = {"time": NOW.isoformat(), "vin": "1HGCM82633A004352",
 
 
 def feed(tool, monkeypatch, data=CODES, **valves):
+    monkeypatch.setattr(torke, "SCANNER_FEED_READY", True)
     tool.valves.scanner_feed = True
     tool.valves.scanner_url = "http://scanner.local:8765/codes"
     for k, v in valves.items():
@@ -196,7 +197,17 @@ def feed(tool, monkeypatch, data=CODES, **valves):
     return calls
 
 
-def test_scanner_is_off_until_switched_on_and_set_up(tool):
+def test_live_scanner_is_greyed_out_for_now(tool):
+    tool.valves.scanner_feed = True
+    tool.valves.scanner_url = "http://scanner.local:8765/codes"
+    out = run(tool.read_scanner(__user__=USER))
+    assert "isn't available yet" in out and "type the codes" in out
+    assert "coming soon" in torke.Tools.Valves.model_fields["scanner_feed"].title.lower()
+    assert "P0301" in run(tool.read_scanner(codes=["P0301"], __user__=USER))  # typed codes still work
+
+
+def test_scanner_is_off_until_switched_on_and_set_up(tool, monkeypatch):
+    monkeypatch.setattr(torke, "SCANNER_FEED_READY", True)
     assert "turned off" in run(tool.read_scanner(__user__=USER)) and "type the codes" in run(tool.read_scanner(__user__=USER))
     tool.valves.scanner_feed = True
     assert "address isn't filled in" in run(tool.read_scanner(__user__=USER))

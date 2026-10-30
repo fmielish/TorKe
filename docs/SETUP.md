@@ -84,7 +84,7 @@ Every switch starts off.
 | Operation CHARM, LEMON Manuals | Factory car manuals. **Legal gray area**, so read the warning first. | Nothing |
 | Custom manual sites | Other sites TorKe may search and read | Only sites whose terms allow it |
 | Recall checks | US recalls (NHTSA and CPSC) in Safety warnings | Nothing |
-| Scanner feed, address and password | Reads trouble codes from an OBD-II scanner bridge. Read only. | A bridge and an adapter ([SCANNER.md](SCANNER.md)) |
+| Scanner feed, address and password (coming soon, do nothing yet) | Will read trouble codes from an OBD-II scanner bridge. Read only. | A bridge and an adapter ([SCANNER.md](SCANNER.md)) |
 | Parts in Home Assistant, Tools to get in Home Assistant | Copies of the lists on Home Assistant to-do lists | Webhooks (section 8) |
 | Scheduled upkeep, Critical spares and consumables, VIN decoding and complaints, Save facts on owned items, Shop work, Hand-offs to an outside assistant, Voice and room screens | The whole-house switches. Each is off until you turn it on. | See [HOUSE-SETUP.md](HOUSE-SETUP.md) |
 | YouTube playlist | Each person can add videos to their own playlist | Each person's Google sign-in (section 7) |

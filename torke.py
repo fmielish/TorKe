@@ -1993,6 +1993,7 @@ _P_AREAS = {"0": "fuel and air metering and auxiliary emission controls", "1": "
             "6": "computer and auxiliary outputs", "7": "transmission", "8": "transmission",
             "9": "transmission", "A": "hybrid propulsion", "B": "hybrid propulsion", "C": "hybrid propulsion"}
 _DTC_STATUS = ("stored", "pending", "permanent")
+SCANNER_FEED_READY = False  # live scanning is greyed out until an adapter has been tried
 MAX_SCANNER_CODES = 30
 
 
@@ -2203,17 +2204,18 @@ class Tools:
             json_schema_extra={"input": {"type": "password"}},
         )
         # Trouble codes from a scanner
-        scanner_feed: bool = Field(title="Scanner feed",
+        scanner_feed: bool = Field(title="Scanner feed (coming soon, does nothing yet)",
             default=False,
-            description="Read trouble codes (like P0301) from a scanner bridge on your network, a small program "
+            description="COMING SOON: this switch does nothing until live scanning is switched on in a later "
+                        "version. Read trouble codes (like P0301) from a scanner bridge on your network, a small program "
                         "that reads an OBD-II adapter plugged into the car. TorKe only reads: it never clears "
                         "codes or sends anything to the car. See docs/SCANNER.md.",
         )
-        scanner_url: str = Field(title="Scanner feed address",
+        scanner_url: str = Field(title="Scanner feed address (coming soon)",
             default="",
             description="The web address the bridge serves, e.g. http://scanner.local:8765/codes.",
         )
-        scanner_token: str = Field(title="Scanner feed password",
+        scanner_token: str = Field(title="Scanner feed password (coming soon)",
             default="",
             description="The bridge's password, if you set one.",
             json_schema_extra={"input": {"type": "password"}},
@@ -4015,6 +4017,9 @@ class Tools:
             feed = _parse_feed({"codes": [str(c) for c in raw]})
         else:
             url = (v.scanner_url or "").strip()
+            if not SCANNER_FEED_READY:
+                return ("Reading the scanner live isn't available yet; it's coming in a later version. "
+                        "Meanwhile they can type the codes and you can pass them in codes.")
             if not v.scanner_feed:
                 return ("\"Scanner feed\" is turned off in TorKe's settings. An admin can turn it on (scanner guide). "
                         "Meanwhile they can type the codes and you can pass them in codes.")

@@ -32,7 +32,7 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
   <img src="docs/card-jobs.png" width="640" alt="Pick a job card for a 2012 Honda Civic: a search box and jobs grouped by system, each marked Common, iFixit, Done or Due">
 </p>
 
-**Trouble codes.** With a small scanner bridge and an OBD-II adapter, TorKe can read the car's trouble codes, explain what each code's shape tells you, and get the meaning for your make from the manual. It only reads; it never clears codes. See [SCANNER.md](docs/SCANNER.md).
+**Trouble codes.** Typed-in codes work now. Live reading is coming soon (its settings are greyed out and do nothing yet). With a small scanner bridge and an OBD-II adapter, TorKe will read the car's trouble codes, explain what each code's shape tells you, and get the meaning for your make from the manual. It only reads; it never clears codes. See [SCANNER.md](docs/SCANNER.md).
 
 **Themes.** Every card has a theme button in its top corner: dark or light, in cyan, green, violet or red. The change shows right away, and **Save as my look** keeps it for that person, so their cards open that way next time.
 
