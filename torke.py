@@ -113,7 +113,8 @@ SAFETY = [
         "cats": CARS,
         "words": ["jack", "lift", "under the car", "underneath", "suspension", "exhaust", "oil change",
                   "transmission", "drain plug", "cv axle", "control arm", "strut", "shock", "brake", "brakes",
-                  "rotor", "rotors", "tire", "tires", "wheel bearing"],
+                  "rotor", "rotors", "tire", "tires", "wheel bearing", "wheel end", "iwe", "axle", "half shaft",
+                  "driveshaft", "u-joint", "u joint", "differential", "transfer case", "4x4", "4wd", "hub"],
         "rules": "Never get under a vehicle held up only by a jack. Use jack stands rated for the "
                  "vehicle on flat, solid ground, chock the wheels that stay down, set the parking brake, "
                  "and use the lift points in the owner's manual. Jack stands aren't in the starter kit.",
@@ -1875,7 +1876,12 @@ _COMMON_JOBS = {
                                    "Wheel bearing replacement", "Sway bar link replacement"]),
         ("Tires & wheels", ["Spare tire change", "Tire pressure sensor (TPMS) replacement"]),
         ("Drivetrain & transmission", ["Clutch replacement", "CV axle replacement",
-                                       "Driveshaft or U-joint replacement"]),
+                                       "CV joint boot replacement", "Front axle shaft replacement",
+                                       "Rear axle shaft or seal replacement",
+                                       "Driveshaft or U-joint replacement", "U-joint replacement",
+                                       "4x4 hub or integrated wheel end (IWE) replacement",
+                                       "Front differential fluid change", "Rear differential fluid change",
+                                       "Transfer case fluid change"]),
         ("Climate control", ["Blower motor replacement", "Heater not working diagnosis"]),
         ("Exhaust", ["Muffler replacement", "Find an exhaust leak"]),
         ("Body & interior", ["Door lock actuator replacement", "Window regulator replacement",
@@ -1899,6 +1905,8 @@ _COMMON_JOBS = {
 
 # Where a job from a manual, iFixit or the repair log goes on a vehicle. The first match wins.
 _JOB_GROUPS = [
+    ("Drivetrain & transmission", ("wheel end", "iwe", "half shaft", "u-joint", "u joint", "4x4", "4wd",
+                                   "hub actuator", "locking hub", "axle shaft")),
     ("Brakes", ("brake", "caliper", "rotor", "abs ")),
     ("Climate control", ("a/c", "air conditioning", "heater", "blower", "cabin air", "hvac")),
     ("Fuel & emissions", ("fuel", "oxygen", "o2 sensor", "catalytic", "evap", "emission", "airflow", "maf ",

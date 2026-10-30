@@ -314,3 +314,14 @@ def test_no_stylesheet_contains_stray_control_characters():
         if name.endswith("_CSS"):
             bad = [c for c in getattr(torke, name) if ord(c) < 32 and c not in "\n\t"]
             assert not bad, (name, bad)
+
+
+def test_4x4_jobs_are_listed_and_trigger_the_lifting_warning(tool):
+    names = [j for g, js in torke._COMMON_JOBS["vehicle"] if g == "Drivetrain & transmission" for j in js]
+    for want in ("CV axle replacement", "U-joint replacement", "Front axle shaft replacement",
+                 "4x4 hub or integrated wheel end (IWE) replacement", "Transfer case fluid change"):
+        assert want in names
+    assert torke._job_group("Replace the IWE actuator") == "Drivetrain & transmission"
+    out = run(tool.safety_check("Replace the IWE actuator", "2013 Ford F-150", "vehicle", "Ford", "F-150", "2013",
+                                __user__=USER))
+    assert "jack stands" in out
