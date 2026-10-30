@@ -202,7 +202,7 @@ To skip the confirmation, an admin can turn on **Settings > Interface > iframe S
 
 ## Things to verify on your setup
 
-TorKe 0.7.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
+TorKe 0.8.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
 
 - **Homebox updates:** that changing an item (moving a tool to "owned", putting a part on the shelf, archiving) keeps its other details. TorKe sends back everything it read, but Homebox's notes don't spell out how its update works.
 - **Homebox sign-in:** that an API key works as a bearer token.
@@ -211,6 +211,7 @@ TorKe 0.7.0 passed its offline tests, including against a stand-in Homebox for b
 - **Buttons:** the confirmation behavior of card buttons.
 - **Job done boxes:** that you can type in the Mileage and Notes boxes inside Open WebUI's card frame, that what you typed shows in the Finish job message, and that the keyboard guess is right on your phone and on any garage or wall screen.
 - **Pick a job:** that the list opens from the project card's button, that tapping a group opens it and the search filters it inside Open WebUI's frame, and that picking a job starts a project. Jobs from a manual need a manual whose contents page lists jobs with page numbers; many don't, and then only the common jobs show.
+- **Step card:** that tapping the right side of a step goes forward and the left side goes back inside Open WebUI's frame (a tap on a button or link shouldn't also move the step), that the Full list view and tick-offs work, and that **Done with this job** sends its message. Check that the warning strip shows at the bottom of every card.
 - **Scanner:** see the list at the end of [SCANNER.md](SCANNER.md).
 - **Theme button:** that the theme popup opens and changes the card inside Open WebUI's frame, that **Save as my look** sends its message, and that the saved look shows on the next card.
 - **iFixit:** the search endpoint and guide field names.

@@ -2,6 +2,8 @@
 
 # TorKe
 
+> **WARNING: Repairs can injure or kill you, start fires and destroy property. TorKe is an AI hobby tool, it can be wrong, and it is not a mechanic or any other licensed professional. Check every number against the manufacturer's manual for your exact item, and use a professional for brakes, airbags, gas, high voltage and anything you're unsure about. You use TorKe entirely at your own risk. [Read the full warning](DISCLAIMER.md) before you use it.**
+
 Fix it yourself with pubs and videos.
 
 TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). It brings each job's manuals and repair documents together with the tools and parts the job needs, and keeps all of it in [Homebox](https://homebox.software). Tell it what you're fixing and it opens a project card in the chat: a picture of the thing on the right, and six buttons on the left. It helps with vehicles, appliances, tools, electronics, yard equipment and the house.
@@ -30,6 +32,12 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 
 <p align="center">
   <img src="docs/card-jobs.png" width="640" alt="Pick a job card for a 2012 Honda Civic: a search box and jobs grouped by system, each marked Common, iFixit, Done or Due">
+</p>
+
+**Walk-through.** When you ask to be walked through a job and TorKe has the steps from your manual or a guide it read, it shows a **step card**. By default it shows one step at a time: tap the right side of the step to go forward and the left side to go back (the Back and Next buttons and the arrow keys work too), or switch to the full list and tick steps off. Each step can carry a caution, a "before you move on" check and torque values. Values that didn't come from a manual are marked in amber as not confirmed, and the card names the source. It doesn't remember which step you're on if you reopen the chat.
+
+<p align="center">
+  <img src="docs/card-procedure.png" width="640" alt="Step card for replacing a front hub on a 2013 Ford F-150: step 4 of 5 with two torque values marked as not confirmed, a before-you-move-on check, and Back, Ask TorKe and Next buttons">
 </p>
 
 **Trouble codes.** Typed-in codes work now. Live reading is coming soon (its settings are greyed out and do nothing yet). With a small scanner bridge and an OBD-II adapter, TorKe will read the car's trouble codes, explain what each code's shape tells you, and get the meaning for your make from the manual. It only reads; it never clears codes. See [SCANNER.md](docs/SCANNER.md).
@@ -115,11 +123,11 @@ All off by default:
 
 ## Safety
 
-TorKe points you to the manual and tells you when a job is for a professional, but you're responsible for your own work. It never guesses torque specs or other critical numbers, and it treats text from websites as information, never as instructions. The software comes with no warranty (see the license).
+Read the [full warning](DISCLAIMER.md). TorKe points you to the manual and tells you when a job is for a professional, but you're responsible for your own work. It never guesses torque specs or other critical numbers, and it treats text from websites as information, never as instructions. The software comes with no warranty (see the license).
 
 ## Status
 
-Version 0.7.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.8.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 

@@ -83,7 +83,24 @@ async def build_cards(tmp: Path) -> dict:
     hb.maint["e3"] = [{"name": "Replaced front brake pads", "completedDate": "2026-03-14",
                        "description": "Mileage: 90,000"}, {"name": "Change oil", "scheduledDate": "2026-12-01"}]
     jobs, _ = await t.job_picker(civic, "vehicle", __user__=user)
-    return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode(),
+    hub_steps = [
+        {"title": "Lift and support the truck", "how": "Loosen the lug nuts a little with the wheels on the ground. Lift the front, set jack stands, then take the wheel off.",
+         "check": "The truck is solid on stands and doesn't rock when you push it.", "warn": "Never work under a truck held only by a jack."},
+        {"title": "Remove the caliper and rotor", "how": "Take out the two caliper bracket bolts. Support the caliper, then pull the rotor.",
+         "check": "The caliper hangs from wire, not its brake hose.", "warn": "Don't let the caliper hang from its brake hose."},
+        {"title": "Remove the four hub bolts", "how": "Remove the four hub-to-knuckle bolts. They're single use.", "check": "All four bolts are out."},
+        {"title": "Fasten the hub", "how": "Install the four new hub bolts, then a new axle nut. Reconnect the ABS sensor.",
+         "check": "Every fastener is torqued and the sensor is clipped away from moving parts.",
+         "torque": [{"what": "Hub bolts (new)", "value": "129 ft-lb", "note": "2 sources agree"},
+                    {"what": "Axle nut (new)", "value": "30 ft-lb", "note": "Disputed: 20 or 30"}]},
+        {"title": "Reassemble and test", "how": "Reinstall the rotor, caliper and wheel. Check the brake pedal is firm before you move.",
+         "check": "The pedal is firm and 4WD engages at walking speed."},
+    ]
+    hub_src = "Sample steps for a layout preview. A real card names the manual or guide each step came from."
+    proc, _ = await t.show_procedure("2013 Ford F-150", "Replace front hub assembly (4WD)", hub_steps, hub_src, __user__=user)
+    proc_list, _ = await t.show_procedure("2013 Ford F-150", "Replace front hub assembly (4WD)", hub_steps, hub_src, "list",
+                                          __user__=user)
+    return {"card-procedure": proc.body.decode(), "card-procedure-list": proc_list.body.decode(), "card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode(),
             "card-shopping": shop.body.decode(), "card-job-done": done.body.decode(),
             "card-jobs": jobs.body.decode()}
 
@@ -101,6 +118,8 @@ async def main(out: Path):
                 page = await browser.new_page(viewport={"width": width, "height": 400}, device_scale_factor=2)
                 await page.set_content(html_text)
                 await page.wait_for_timeout(1500)  # let the ring finish drawing
+                if name == "card-procedure":
+                    await page.evaluate("cur=3;show()")  # show a middle step, the one with torque values
                 await page.locator("section.hud").screenshot(path=str(out / f"{name}{suffix}.png"))
                 await page.close()
         await browser.close()
