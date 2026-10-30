@@ -84,6 +84,7 @@ Every switch starts off.
 | Operation CHARM, LEMON Manuals | Factory car manuals. **Legal gray area**, so read the warning first. | Nothing |
 | Custom manual sites | Other sites TorKe may search and read | Only sites whose terms allow it |
 | Recall checks | US recalls (NHTSA and CPSC) in Safety warnings | Nothing |
+| Scanner feed, address and password | Reads trouble codes from an OBD-II scanner bridge. Read only. | A bridge and an adapter ([SCANNER.md](SCANNER.md)) |
 | Parts in Home Assistant, Tools to get in Home Assistant | Copies of the lists on Home Assistant to-do lists | Webhooks (section 8) |
 | Scheduled upkeep, Critical spares and consumables, VIN decoding and complaints, Save facts on owned items, Shop work, Hand-offs to an outside assistant, Voice and room screens | The whole-house switches. Each is off until you turn it on. | See [HOUSE-SETUP.md](HOUSE-SETUP.md) |
 | YouTube playlist | Each person can add videos to their own playlist | Each person's Google sign-in (section 7) |
@@ -201,7 +202,7 @@ To skip the confirmation, an admin can turn on **Settings > Interface > iframe S
 
 ## Things to verify on your setup
 
-TorKe 0.6.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
+TorKe 0.7.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
 
 - **Homebox updates:** that changing an item (moving a tool to "owned", putting a part on the shelf, archiving) keeps its other details. TorKe sends back everything it read, but Homebox's notes don't spell out how its update works.
 - **Homebox sign-in:** that an API key works as a bearer token.
@@ -209,6 +210,8 @@ TorKe 0.6.0 passed its offline tests, including against a stand-in Homebox for b
 - **Attached photos:** that a photo attached in the chat shows on the project card.
 - **Buttons:** the confirmation behavior of card buttons.
 - **Job done boxes:** that you can type in the Mileage and Notes boxes inside Open WebUI's card frame, that what you typed shows in the Finish job message, and that the keyboard guess is right on your phone and on any garage or wall screen.
+- **Pick a job:** that the list opens from the project card's button, that tapping a group opens it and the search filters it inside Open WebUI's frame, and that picking a job starts a project. Jobs from a manual need a manual whose contents page lists jobs with page numbers; many don't, and then only the common jobs show.
+- **Scanner:** see the list at the end of [SCANNER.md](SCANNER.md).
 - **Theme button:** that the theme popup opens and changes the card inside Open WebUI's frame, that **Save as my look** sends its message, and that the saved look shows on the next card.
 - **iFixit:** the search endpoint and guide field names.
 - **Model file:** importing `torke-model.json`.

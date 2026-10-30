@@ -26,6 +26,14 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 
 **Homebox is required** for tools, parts and the repair log. Most other options start **off**; each one is a switch in the tool's settings, so you choose what TorKe can reach.
 
+**Pick a job.** The project card has a **Pick a job** button that opens a searchable list. Vehicles are grouped by system (brakes, engine, cooling and so on), with common jobs, jobs named in the item's own manual, iFixit guides when that's on, and what's been done or is due in its repair log. The common jobs are names only, with no intervals or specs; those come from a manual. Tap a job to start a project for it.
+
+<p align="center">
+  <img src="docs/card-jobs.png" width="640" alt="Pick a job card for a 2012 Honda Civic: a search box and jobs grouped by system, each marked Common, iFixit, Done or Due">
+</p>
+
+**Trouble codes.** With a small scanner bridge and an OBD-II adapter, TorKe can read the car's trouble codes, explain what each code's shape tells you, and get the meaning for your make from the manual. It only reads; it never clears codes. See [SCANNER.md](docs/SCANNER.md).
+
 **Themes.** Every card has a theme button in its top corner: dark or light, in cyan, green, violet or red. The change shows right away, and **Save as my look** keeps it for that person, so their cards open that way next time.
 
 ## Install
@@ -102,6 +110,7 @@ All off by default:
 - **Pictures, when turned on,** load from the site they came from, so that site sees the request.
 - **Searches** go through your own SearXNG if you set one. Otherwise TorKe gives you links to open yourself.
 - **Your tools, parts and repair log** stay in your own Homebox. TorKe keeps only the open project for each chat on your Open WebUI server.
+- **The scanner feed,** when turned on, reads trouble codes from a bridge on your own network. Nothing goes to the internet.
 - **The whole-house switches** (upkeep, spares, VIN decoding, shop work and more) are off until you turn them on. VIN decoding and recall checks send the VIN or the make and model to NHTSA or CPSC, and the room-message switch sends text to your own Home Assistant. [HOUSE-SETUP.md](docs/HOUSE-SETUP.md) has the details.
 
 ## Safety
@@ -110,7 +119,7 @@ TorKe points you to the manual and tells you when a job is for a professional, b
 
 ## Status
 
-Version 0.6.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.7.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 

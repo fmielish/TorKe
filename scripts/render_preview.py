@@ -77,8 +77,15 @@ async def build_cards(tmp: Path) -> dict:
     await t.parts_arrived(["front brake pads", "front rotors"], __user__=user)
     await t.rental_picked_up(["floor jack"], __user__=user)
     done, _ = await t.complete_job(civic, job, __user__=user)
+    ifixit = {"results": [{"dataType": "guide", "title": "Honda Civic Brake Pad Replacement",
+                           "url": "https://www.ifixit.com/Guide/Honda+Civic+Brake+Pad+Replacement/1"}]}
+    torke._json = lambda url, **kw: ifixit if "ifixit.com" in url else hb.json(url, **kw)
+    hb.maint["e3"] = [{"name": "Replaced front brake pads", "completedDate": "2026-03-14",
+                       "description": "Mileage: 90,000"}, {"name": "Change oil", "scheduledDate": "2026-12-01"}]
+    jobs, _ = await t.job_picker(civic, "vehicle", __user__=user)
     return {"card-photo": photo.body.decode(), "card-vehicle": car.body.decode(), "card-tools": tools.body.decode(),
-            "card-shopping": shop.body.decode(), "card-job-done": done.body.decode()}
+            "card-shopping": shop.body.decode(), "card-job-done": done.body.decode(),
+            "card-jobs": jobs.body.decode()}
 
 
 async def main(out: Path):
