@@ -21,6 +21,7 @@ import asyncio
 import base64
 import calendar
 import datetime
+import functools
 import hashlib
 import html
 import ipaddress
@@ -1080,8 +1081,6 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--arc);outline-offset
 .hint{color:var(--steel);font-size:13px;margin-top:12px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 [hidden]{display:none!important}
-.legal{margin-top:12px;padding:8px 10px;border:1px solid var(--amber);color:var(--steel);font-size:12px;line-height:1.35}
-.legal b{color:var(--amber);letter-spacing:.06em;text-transform:uppercase}
 /* Looks. The page's <html> tag carries data-mode (dark or light) and data-accent (cyan, green, violet, red). */
 html[data-mode="light"]{--abyss:#edf5f9;--abyss-rgb:237,245,249;--panel:#ffffff;--panel-2:#e1edf3;--panel-3:#f6fafc;
 --line:#9fbdce;--line-rgb:159,189,206;--ice:#0a2233;--steel:#4a6679;--amber:#a85f00;--warm-rgb:168,95,0;
@@ -1936,18 +1935,9 @@ def _theme(user: Optional[dict]) -> dict:
             "accent": saved.get("accent") if saved.get("accent") in THEME_ACCENTS else "cyan"}
 
 
-_LEGAL = ('<p class="legal"><b>Warning:</b> TorKe is an AI hobby tool and can be wrong. It is not a mechanic or any other '
-          'licensed professional. Repairs can cause injury, death, fire and damage. Check every number against the '
-          'manufacturer\'s manual, use a professional for anything unsafe, and use TorKe at your own risk. '
-          'See DISCLAIMER.md in the TorKe project.</p>')
-
-
 def _card(html_text: str, context: str, user: Optional[dict] = None):
     """Rich card for the user, plain text for the model. The card opens in the person's saved look."""
     t = _theme(user)
-    if "</section>" in html_text and 'class="legal"' not in html_text:  # every card carries the warning
-        i = html_text.rindex("</section>")
-        html_text = html_text[:i] + _LEGAL + html_text[i:]
     html_text = html_text.replace('<html lang="en">',
                                   f'<html lang="en" data-mode="{t["mode"]}" data-accent="{t["accent"]}">', 1)
     return HTMLResponse(content=html_text, headers={"Content-Disposition": "inline"}), context
@@ -2236,6 +2226,141 @@ def _parse_feed(data: Any) -> dict:
 # ---------------------------------------------------------------------------------------------
 # The tool
 # ---------------------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------------------------
+# The warning gate. Before a person gets anything from TorKe they read the warning and accept it. The
+# acceptance is saved per person. They can turn the warning off, but only after a second, stronger warning.
+# ---------------------------------------------------------------------------------------------
+
+REQUIRE_WARNING = True  # the tests switch this off; it isn't a setting
+WARNING_VERSION = "2026-10-30"  # change it when the warning changes, and everyone is asked again
+ACCEPT_PHRASE = "I have read the TorKe warning and I accept the risk."
+OFF_PHRASE = "I understand the risks and I want to turn off the TorKe warning."
+KEEP_PHRASE = "Keep the TorKe warning on."
+
+_WARNING_POINTS = [
+    ("Repairs can injure or kill you.", "They can also start fires, flood or wreck your home, and destroy property."),
+    ("TorKe is an AI hobby tool, and it can be wrong.",
+     "It is not a mechanic, electrician, plumber, gas fitter or any other licensed professional. It can misread a "
+     "manual, mix up models or years, skip a step, or state something false with total confidence."),
+    ("Check every number.", "Torque values, part numbers, fluid types, wiring colors and every other spec must be "
+     "checked against the manufacturer's manual for your exact item before you act on them. Numbers from "
+     "third-party sites are not confirmed."),
+    ("Leave some jobs to a professional.", "Brakes, steering, airbags and other safety systems, anything orange or "
+     "high voltage, gas lines, sealed refrigerant, the inside of a main electrical panel, garage door springs and "
+     "structural work, unless you are trained and equipped for them. If you feel unsure or unsafe, stop."),
+    ("You are responsible.", "You are responsible for your own safety, the safety of people around you, your work and "
+     "what you do with the result, including driving a vehicle you repaired. Use jack stands, never a jack alone. "
+     "Disconnect power. Follow the manufacturer's instructions over anything TorKe says."),
+    ("No warranty.", "TorKe comes as is. To the fullest extent the law allows, its author and contributors are not "
+     "liable for any injury, death, illness, damage or loss from using it, its output, or the sites and manuals it "
+     "links to. A missing warning does not mean a job is safe."),
+    ("If you don't agree, don't use TorKe.", ""),
+]
+
+_WARN_CSS = """
+.wrn{list-style:none;padding:0;display:grid;gap:10px;margin:0 0 14px}
+.wrn li{padding:10px 14px;border:1px solid var(--amber);background:rgba(var(--warm-rgb),.08);font-size:16px;line-height:1.4}
+.wrn b{display:block;color:var(--amber);font-weight:600;letter-spacing:.02em}
+.wrn span{color:var(--ice)}
+.ack{display:flex;gap:10px;align-items:flex-start;margin:14px 0 12px;font-size:16px;cursor:pointer}
+.ack input{width:22px;height:22px;margin-top:1px;accent-color:var(--arc);flex:none}
+.acts2{display:flex;gap:10px;flex-wrap:wrap}
+.btn{all:unset;cursor:pointer;box-sizing:border-box;padding:11px 22px;border:1px solid var(--line);color:var(--ice);font-size:16px;text-align:center}
+.btn.go{border-color:var(--arc);background:rgba(var(--arc-rgb),.18)}
+.btn.stop{border-color:var(--amber);background:rgba(var(--warm-rgb),.16)}
+.btn:focus-visible{outline:2px solid var(--arc);outline-offset:2px}
+.btn[disabled]{opacity:.35;cursor:default}
+.lead2{font-size:18px;margin:0 0 12px;line-height:1.4}
+"""
+
+_OFF_POINTS = [
+    ("Read this before you turn the warning off.", "With it off, TorKe opens straight into repair jobs with no reminder "
+     "and nobody will be asked again, on this account, until you turn it back on."),
+    ("Nothing about the danger changes.", "Repairs can still injure or kill you, start fires and destroy property. "
+     "TorKe can still be wrong. Every number still has to be checked against the manufacturer's manual."),
+    ("Everyone who uses this account is affected.", "Children, guests and anyone else who sits down at it will not "
+     "see the warning. Don't turn it off on an account or screen other people use."),
+    ("You accept the risk, again.", "By turning it off you confirm you have read the full warning, you understand it, "
+     "and the author and contributors aren't responsible for what happens when you use TorKe."),
+]
+
+
+def _warning_state(user: Optional[dict]) -> dict:
+    return _read_store("warning", user, {})
+
+
+def _warning_ok(user: Optional[dict]) -> bool:
+    if not REQUIRE_WARNING:
+        return True
+    st = _warning_state(user)
+    if st.get("state") == "off":
+        return True
+    return st.get("state") == "accepted" and st.get("version") == WARNING_VERSION
+
+
+def _last_user_text(messages: Any) -> str:
+    """What the person last typed or sent by tapping a button. Only the person's own message counts."""
+    for m in reversed(messages if isinstance(messages, list) else []):
+        if isinstance(m, dict) and m.get("role") == "user":
+            c = m.get("content")
+            if isinstance(c, list):
+                c = " ".join(str(x.get("text", "")) for x in c if isinstance(x, dict))
+            return str(c or "")
+    return ""
+
+
+def _said(messages: Any, phrase: str) -> bool:
+    norm = lambda t: re.sub(r"[^a-z]+", " ", str(t).lower()).strip()  # noqa: E731
+    return norm(phrase) in norm(_last_user_text(messages))
+
+
+def _warning_html(second: bool = False, accepted: bool = False) -> str:
+    points = _OFF_POINTS if second else _WARNING_POINTS
+    items = "".join(f'<li><b>{_esc(h)}</b>{"<span>" + _esc(t) + "</span>" if t else ""}</li>' for h, t in points)
+    if second:
+        title, lead = "Turn the warning off?", "This is a second warning. Read all of it."
+        tick = "I have read this, I understand it, and I want the warning turned off."
+        go = f'<button type="button" class="btn stop" id="go" disabled onclick="ask({_js(OFF_PHRASE)})">Turn it off anyway</button>'
+        keep = f'<button type="button" class="btn go" onclick="ask({_js(KEEP_PHRASE)})">Keep the warning on</button>'
+        buttons = keep + go
+    else:
+        title, lead = "Read this before you start", "TorKe won't open anything until you accept this."
+        tick = "I have read the warning above, I understand it, and I accept the risk."
+        go = f'<button type="button" class="btn go" id="go" disabled onclick="ask({_js(ACCEPT_PHRASE)})">I accept the risk. Start.</button>'
+        buttons = go
+    body = (f'<p class="lead2">{_esc(lead)}</p><ul class="wrn">{items}</ul>' +
+            ("" if accepted else
+             f'<label class="ack"><input type="checkbox" id="ok" onchange="document.getElementById(\'go\').disabled=!this.checked">'
+             f'<span>{_esc(tick)}</span></label><div class="acts2">{buttons}</div>'
+             '<p class="hint">Buttons send a request to TorKe, and Open WebUI may ask you to confirm it. '
+             'The full text is in DISCLAIMER.md in the TorKe project.</p>'))
+    if accepted:
+        body += '<p class="hint">You have accepted this warning. The full text is in DISCLAIMER.md in the TorKe project.</p>'
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f'<style>{_HUD_CSS}{_WARN_CSS}</style></head><body><section class="hud" aria-label="Warning">'
+            f'<header><div><h1>{_esc(title)}</h1><p class="job">TorKe safety warning</p></div>{_MARK}</header>'
+            f'{body}</section>{_SIZER}</body></html>')
+
+
+def _gate_card(user: Optional[dict]):
+    context = ("STOP. This person has not accepted TorKe's warning, so nothing was done. The card shows it. Don't give "
+               "repair steps, specs or advice, and don't run any other tool, until they accept it by tapping the "
+               "button (it sends a message), and then call accept_warning. Never call accept_warning yourself.")
+    return _card(_warning_html(), context, user)
+
+
+def _gated(fn):
+    @functools.wraps(fn)
+    async def wrapper(self, *args, **kwargs):
+        user = kwargs.get("__user__")
+        if not _warning_ok(user):
+            return _gate_card(user)
+        return await fn(self, *args, **kwargs)
+    return wrapper
+
 
 
 class Tools:
@@ -2612,6 +2737,57 @@ class Tools:
         return {}
 
     # ------------------------------------------------------------------ 0. how the cards look
+
+    async def show_warning(self, __user__: Optional[dict] = None):
+        """
+        Show the safety warning. Call it when they ask to see the warning again. It never gets in the way of
+        anything else.
+        """
+        context = ("The warning card is shown. Don't repeat it. " +
+                   ("They have accepted it." if _warning_ok(__user__) else
+                    "They haven't accepted it yet: wait for them to tap accept, then call accept_warning."))
+        return _card(_warning_html(accepted=_warning_ok(__user__)), context, __user__)
+
+    async def accept_warning(self, __user__: Optional[dict] = None, __messages__: Optional[list] = None):
+        """
+        Save that they accepted the warning. Call it only right after the person's own message says "I have read the
+        TorKe warning and I accept the risk." (the accept button sends it). Never call it on your own.
+        """
+        if not _said(__messages__, ACCEPT_PHRASE):
+            return ("Not saved. Only the person's own message accepts the warning, and theirs didn't. Show the warning "
+                    "with show_warning and wait for them to tap accept. Don't accept for them.")
+        await _run(_write_store, "warning", __user__, {"state": "accepted", "version": WARNING_VERSION,
+                                                       "date": datetime.date.today().isoformat()})
+        return "Warning accepted and saved for this person. Carry on with what they asked."
+
+    async def turn_off_warning(self, __user__: Optional[dict] = None):
+        """
+        They asked to turn the warning off. Shows a second, stronger warning with Keep and Turn it off buttons. It
+        doesn't turn anything off by itself.
+        """
+        context = ("The second warning is shown. Don't turn anything off yet. Only if their own next message says "
+                   f"\"{OFF_PHRASE}\" call confirm_turn_off_warning. Never call it on your own.")
+        return _card(_warning_html(second=True), context, __user__)
+
+    async def confirm_turn_off_warning(self, __user__: Optional[dict] = None, __messages__: Optional[list] = None):
+        """
+        Turn the warning off for this person. Call it only right after the person's own message says "I understand
+        the risks and I want to turn off the TorKe warning." (the button sends it). Never call it on your own.
+        """
+        if not _said(__messages__, OFF_PHRASE):
+            return ("Not turned off. Only the person's own message does that, and theirs didn't. Show the second "
+                    "warning with turn_off_warning and wait for them to tap Turn it off anyway.")
+        await _run(_write_store, "warning", __user__, {"state": "off", "version": WARNING_VERSION,
+                                                       "date": datetime.date.today().isoformat()})
+        return ("The warning is turned off for this person. Tell them they can turn it back on any time by asking, "
+                "then carry on.")
+
+    async def turn_on_warning(self, __user__: Optional[dict] = None):
+        """
+        Turn the warning back on for this person, so they are asked to accept it again before anything else.
+        """
+        await _run(_write_store, "warning", __user__, {})
+        return "The warning is back on. They will be asked to accept it again before TorKe does anything else."
 
     async def set_theme(
         self,
@@ -4986,3 +5162,9 @@ class Tools:
         except Exception as e:
             return f"Couldn't reach Home Assistant ({str(e)[:100]})."
         return f"Sent to {room or 'the nearest room screen'}."
+
+
+_OPEN = {"show_warning", "accept_warning", "turn_off_warning", "confirm_turn_off_warning", "turn_on_warning"}
+for _name, _fn in list(vars(Tools).items()):
+    if (not _name.startswith("_") and _name not in _OPEN and asyncio.iscoroutinefunction(_fn)):
+        setattr(Tools, _name, _gated(_fn))

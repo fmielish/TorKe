@@ -51,6 +51,7 @@ async def build_cards(tmp: Path) -> dict:
     torke._json, torke._fetch_bytes = hb.json, hb.fetch
     hb.maint["e2"] = [{"name": "Cleaned the filter", "description": "Standing water, filter clogged.",
                        "completedDate": "2026-03-14"}]
+    torke.REQUIRE_WARNING = False  # the preview shows the cards, not the warning
     t = torke.Tools()
     t.valves.site_ifixit = True
     t.valves.site_manualslib = True

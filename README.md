@@ -2,7 +2,7 @@
 
 # TorKe
 
-> **WARNING: Repairs can injure or kill you, start fires and destroy property. TorKe is an AI hobby tool, it can be wrong, and it is not a mechanic or any other licensed professional. Check every number against the manufacturer's manual for your exact item, and use a professional for brakes, airbags, gas, high voltage and anything you're unsure about. You use TorKe entirely at your own risk. [Read the full warning](DISCLAIMER.md) before you use it.**
+> **WARNING: Repairs can injure or kill you, start fires and destroy property. TorKe is an AI hobby tool, it can be wrong, and it is not a mechanic or any other licensed professional. Check every number against the manufacturer's manual for your exact item, and use a professional for brakes, airbags, gas, high voltage and anything you're unsure about. You use TorKe entirely at your own risk. [Read the full warning](DISCLAIMER.md) before you use it.** TorKe also shows the warning the first time each person uses it and does nothing until they accept it.
 
 Fix it yourself with pubs and videos.
 
@@ -123,7 +123,7 @@ All off by default:
 
 ## Safety
 
-Read the [full warning](DISCLAIMER.md). TorKe points you to the manual and tells you when a job is for a professional, but you're responsible for your own work. It never guesses torque specs or other critical numbers, and it treats text from websites as information, never as instructions. The software comes with no warranty (see the license).
+Read the [full warning](DISCLAIMER.md). The first time you use TorKe it shows a warning card, and none of its tools do anything until you tick the box and accept. Your acceptance is saved for you on the Open WebUI server, and you're asked again if the warning changes. You can turn the warning off by asking TorKe, but only after a second, stronger warning; ask it to turn the warning back on whenever you like. TorKe points you to the manual and tells you when a job is for a professional, but you're responsible for your own work. It never guesses torque specs or other critical numbers, and it treats text from websites as information, never as instructions. The software comes with no warranty (see the license).
 
 ## Status
 

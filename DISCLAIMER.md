@@ -44,6 +44,10 @@ The software license ([PolyForm Noncommercial 1.0.0](LICENSE.md)) contains its o
 
 TorKe links to and may read material from websites, manuals, guides, videos and services run by other people. They are not endorsed by TorKe's author, they are not checked by him, and he is not responsible for them. Some sources TorKe can be set to use sit in a legal gray area. Turning them on is your choice and your responsibility.
 
+## The warning screen
+
+TorKe shows this warning before first use and does nothing until the person ticks a box and accepts it. The acceptance is saved per person. A person can turn the screen off after a second, stronger warning. Anyone who shares an account or screen with other people shouldn't. The screen is a reminder, not a shield: it does not make a risky job safe and it does not replace your own judgment.
+
 ## If you don't agree
 
 Don't use TorKe.

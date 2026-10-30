@@ -108,22 +108,6 @@ def test_card_follows_the_saved_theme(tool):
     assert 'data-mode="dark" data-accent="cyan"' in html and "toggleTheme()" in html
 
 
-def test_every_card_carries_the_warning_once(tool, monkeypatch):
-    use_homebox(tool, monkeypatch)
-    cards = [
-        body(run(tool.open_project("2013 Ford F-150", "hub", "vehicle", __user__=USER, __chat_id__="w1"))),
-        body(run(tool.job_picker("2013 Ford F-150", "vehicle", __user__=USER))),
-        body(run(tool.shopping_list(__user__=USER))),
-        body(run(tool.check_tools(["torque wrench"], "hub", "2013 Ford F-150", __user__=USER))),
-        body(run(tool.complete_job("2013 Ford F-150", "hub", __user__=USER))),
-        card(tool),
-    ]
-    for html, _ in cards:
-        assert html.count('class="legal"') == 1, html[:80]
-        assert "can be wrong" in html and "at your own risk" in html and "licensed professional" in html
-        assert html.index('class="legal"') < html.rindex("</section>")
-
-
 def test_readme_opens_with_the_warning_and_the_full_warning_exists():
     import pathlib
     root = pathlib.Path(torke.__file__).parent

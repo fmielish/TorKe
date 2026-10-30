@@ -179,6 +179,7 @@ Put the addresses (`http://<home-assistant>:8123/api/webhook/<id>`) in **Parts w
 
 - **Each person's settings** (starter kit switches, YouTube sign-in), saved with their Open WebUI account.
 - **Each person's saved look** (dark or light, and the color), in `<DATA_DIR>/torke/theme-<user id>.json`. Without one, cards open dark and cyan.
+- **Each person's warning choice** (accepted, or turned off, and the date), in `<DATA_DIR>/torke/warning-<user id>.json`. Delete the file to ask that person again.
 - **The open project in each chat,** in `<DATA_DIR>/torke/projects-<user id>.json` on the Open WebUI server, so a restart doesn't forget what you were working on. In the Docker image that's under `/app/backend/data`.
 
 ## 10. The buttons and the confirmation prompt
@@ -211,6 +212,7 @@ TorKe 0.8.0 passed its offline tests, including against a stand-in Homebox for b
 - **Buttons:** the confirmation behavior of card buttons.
 - **Job done boxes:** that you can type in the Mileage and Notes boxes inside Open WebUI's card frame, that what you typed shows in the Finish job message, and that the keyboard guess is right on your phone and on any garage or wall screen.
 - **Pick a job:** that the list opens from the project card's button, that tapping a group opens it and the search filters it inside Open WebUI's frame, and that picking a job starts a project. Jobs from a manual need a manual whose contents page lists jobs with page numbers; many don't, and then only the common jobs show.
+- **Warning screen:** that the first message to TorKe shows the warning card, that nothing else runs until the box is ticked and the button sends its message, that the model then calls accept_warning and carries on, that you aren't asked again, and that the second-warning flow turns it off and "turn the warning back on" restores it. The model must not accept for you; the tool checks your own message, but check that it doesn't give repair steps in chat while the card is showing (only the system prompt stops that).
 - **Step card:** that tapping the right side of a step goes forward and the left side goes back inside Open WebUI's frame (a tap on a button or link shouldn't also move the step), that the Full list view and tick-offs work, and that **Done with this job** sends its message. Check that the warning strip shows at the bottom of every card.
 - **Scanner:** see the list at the end of [SCANNER.md](SCANNER.md).
 - **Theme button:** that the theme popup opens and changes the card inside Open WebUI's frame, that **Save as my look** sends its message, and that the saved look shows on the next card.
