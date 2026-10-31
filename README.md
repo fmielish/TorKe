@@ -134,6 +134,10 @@ Version 0.8.0 is a draft. It passes its offline tests, including against a stand
 - `python -m pytest -q` runs the offline tests. They need `pydantic` and `pytest`.
 - `python scripts/render_preview.py` redraws the preview images. It needs `playwright`, `pillow` and `pytest`.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the rules TorKe keeps and how to send a change, and the [changelog](CHANGELOG.md) for what's new.
+
 ## License
 
 [PolyForm Noncommercial 1.0.0](LICENSE.md). You can use, change and share TorKe for free for any noncommercial purpose. Selling it, or using it in a business, is not allowed.

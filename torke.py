@@ -3,7 +3,7 @@ title: TorKe
 author: Fmielish
 author_url: https://github.com/Fmielish
 git_url: https://github.com/Fmielish/TorKe.git
-description: Fix it yourself with pubs and videos. A repair coach that brings each job's manuals and repair documents together with the tools and parts it needs, all kept in Homebox. Opens a project card with a picture of the thing you're fixing, finds manuals, videos and parts, shows what tools you have and what's missing, keeps a shopping list, flags safety hazards and writes the repair log. Requires Homebox for tools, parts and the repair log. Most options start off.
+description: Fix it yourself with pubs and videos. A repair coach that brings each job's manuals and repair documents together with the tools and parts it needs, all kept in Homebox. Opens a project card with a picture of the thing you're fixing, finds manuals, videos and parts, shows what tools you have and what's missing, keeps a shopping list, flags safety hazards, walks you through a job step by step and writes the repair log. Shows a safety warning you must accept before first use. Requires Homebox for tools, parts and the repair log. Most options start off.
 version: 0.8.0
 license: PolyForm-Noncommercial-1.0.0
 """
