@@ -42,7 +42,7 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 
 **Trouble codes.** Typed-in codes work now. Live reading is coming soon (its settings are greyed out and do nothing yet). With a small scanner bridge and an OBD-II adapter, TorKe will read the car's trouble codes, explain what each code's shape tells you, and get the meaning for your make from the manual. It only reads; it never clears codes. See [SCANNER.md](docs/SCANNER.md).
 
-**Themes.** Every card has a theme button in its top corner: dark or light, in cyan, green, violet or red. The change shows right away, and **Save as my look** keeps it for that person, so their cards open that way next time.
+**Themes.** Every card has a theme button in its top corner: dark or light, in cyan, green, violet, red or black and white. Warnings stay amber in every look. The change shows right away, and **Save as my look** keeps it for that person, so their cards open that way next time.
 
 ## Install
 

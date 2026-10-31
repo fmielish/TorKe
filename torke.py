@@ -1081,7 +1081,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--arc);outline-offset
 .hint{color:var(--steel);font-size:13px;margin-top:12px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 [hidden]{display:none!important}
-/* Looks. The page's <html> tag carries data-mode (dark or light) and data-accent (cyan, green, violet, red). */
+/* Looks. The page's <html> tag carries data-mode (dark or light) and data-accent (cyan, green, violet, red, mono). */
 html[data-mode="light"]{--abyss:#edf5f9;--abyss-rgb:237,245,249;--panel:#ffffff;--panel-2:#e1edf3;--panel-3:#f6fafc;
 --line:#9fbdce;--line-rgb:159,189,206;--ice:#0a2233;--steel:#4a6679;--amber:#a85f00;--warm-rgb:168,95,0;
 --arc:#00708f;--arc-rgb:0,112,143}
@@ -1091,6 +1091,10 @@ html[data-accent="red"]{--arc:#ff6b6b;--arc-rgb:255,107,107}
 html[data-mode="light"][data-accent="green"]{--arc:#0a7a3d;--arc-rgb:10,122,61}
 html[data-mode="light"][data-accent="violet"]{--arc:#5b3fc4;--arc-rgb:91,63,196}
 html[data-mode="light"][data-accent="red"]{--arc:#b3261e;--arc-rgb:179,38,30}
+html[data-accent="mono"]{--abyss:#000;--abyss-rgb:0,0,0;--panel:#0b0b0b;--panel-2:#161616;--panel-3:#0e0e0e;--line:#4d4d4d;
+--line-rgb:77,77,77;--ice:#fff;--steel:#b0b0b0;--arc:#fff;--arc-rgb:255,255,255}
+html[data-mode="light"][data-accent="mono"]{--abyss:#fff;--abyss-rgb:255,255,255;--panel:#fff;--panel-2:#ececec;
+--panel-3:#f6f6f6;--line:#7a7a7a;--line-rgb:122,122,122;--ice:#000;--steel:#4d4d4d;--arc:#000;--arc-rgb:0,0,0}
 .hud{min-height:240px}
 .tools-r{display:flex;align-items:center;gap:12px}
 .themewrap{position:relative}
@@ -1108,6 +1112,7 @@ html[data-mode="light"][data-accent="red"]{--arc:#b3261e;--arc-rgb:179,38,30}
 .sw button[aria-pressed="true"]{border-color:var(--ice)}
 .sw [data-a="cyan"]{background:#5ce1ff}.sw [data-a="green"]{background:#5cff9d}
 .sw [data-a="violet"]{background:#b79cff}.sw [data-a="red"]{background:#ff6b6b}
+.sw [data-a="mono"]{background:linear-gradient(90deg,#000 50%,#fff 50%)}
 .seg button:focus-visible,.sw button:focus-visible,.themesave:focus-visible{outline:2px solid var(--arc)}
 .themesave{all:unset;cursor:pointer;box-sizing:border-box;display:block;width:100%;text-align:center;padding:7px 0;
  border:1px solid var(--amber);color:var(--ice);font-size:14px;background:rgba(var(--warm-rgb),.12)}
@@ -1209,7 +1214,8 @@ _THEME_UI = (
     '<button type="button" data-a="cyan" aria-label="Cyan" aria-pressed="true" onclick="pickTheme(\'a\',\'cyan\')"></button>'
     '<button type="button" data-a="green" aria-label="Green" aria-pressed="false" onclick="pickTheme(\'a\',\'green\')"></button>'
     '<button type="button" data-a="violet" aria-label="Violet" aria-pressed="false" onclick="pickTheme(\'a\',\'violet\')"></button>'
-    '<button type="button" data-a="red" aria-label="Red" aria-pressed="false" onclick="pickTheme(\'a\',\'red\')"></button></div>'
+    '<button type="button" data-a="red" aria-label="Red" aria-pressed="false" onclick="pickTheme(\'a\',\'red\')"></button>'
+    '<button type="button" data-a="mono" aria-label="Black and white" aria-pressed="false" onclick="pickTheme(\'a\',\'mono\')"></button></div>'
     '<button type="button" class="themesave" id="themesave" hidden onclick="saveTheme()">Save as my look</button>'
     '<p class="themenote">Changes show right away. Saving keeps it with your account.</p></div></div>'
 )
@@ -1921,7 +1927,7 @@ def _closeout_html(item: str, job: str, c: dict, reading: str = "Mileage") -> st
 
 
 THEME_MODES = ("dark", "light")
-THEME_ACCENTS = ("cyan", "green", "violet", "red")
+THEME_ACCENTS = ("cyan", "green", "violet", "red", "mono")
 
 
 def _theme(user: Optional[dict]) -> dict:
@@ -2796,18 +2802,18 @@ class Tools:
         __user__: Optional[dict] = None,
     ) -> str:
         """
-        Save how TorKe's cards look for this person: a mode (dark or light) and a color (cyan, green, violet or
-        red). Call it when they ask for a different look, or when a message says "Save my TorKe theme: <mode>,
+        Save how TorKe's cards look for this person: a mode (dark or light) and a color (cyan, green, violet, red or
+        mono, which is black and white). Call it when they ask for a different look, or when a message says "Save my TorKe theme: <mode>,
         <accent>" (the theme button on the cards sends that). Leave one empty to keep the saved value.
         :param mode: dark or light
-        :param accent: cyan, green, violet or red
+        :param accent: cyan, green, violet, red or mono (black and white)
         """
         mode, accent = str(mode or "").strip().lower(), str(accent or "").strip().lower()
         if (mode and mode not in THEME_MODES) or (accent and accent not in THEME_ACCENTS):
             return (f"The look can be {' or '.join(THEME_MODES)}, in {', '.join(THEME_ACCENTS[:-1])} or "
                     f"{THEME_ACCENTS[-1]}.")
         if not (mode or accent):
-            return "Ask which look they want: dark or light, and cyan, green, violet or red."
+            return "Ask which look they want: dark or light, and cyan, green, violet, red or mono (black and white)."
         now = _theme(__user__)
         new = {"mode": mode or now["mode"], "accent": accent or now["accent"]}
         try:

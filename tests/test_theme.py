@@ -36,7 +36,7 @@ def test_every_card_has_the_theme_button_and_the_saved_look(tool, monkeypatch):
         html = card_html(c)
         assert look(html) == ("light", "green")
         assert 'class="themebtn"' in html and "toggleTheme()" in html and "saveTheme()" in html
-        assert html.count('<button type="button" data-m="') == 2 and html.count('<button type="button" data-a="') == 4
+        assert html.count('<button type="button" data-m="') == 2 and html.count('<button type="button" data-a="') == 5
     # someone else still gets the default
     other = {"id": "bob", "valves": torke.Tools.UserValves()}
     assert look(card_html(run(tool.open_project("Shop vac", __user__=other)))) == ("dark", "cyan")
@@ -87,3 +87,24 @@ def test_every_theme_has_the_variables_the_cards_use():
     for old in ("rgba(92,225,255,", "rgba(255,179,71,", "rgba(4,16,26,"):
         assert old not in everything
     assert everything.count("#071827") == 1  # only the dark theme's own definition
+
+
+def test_black_and_white_look_is_a_real_option_with_no_color(tool):
+    import re as _re
+    run(tool.set_theme("light", "mono", __user__=USER))
+    assert torke._theme(USER) == {"mode": "light", "accent": "mono"}
+    run(tool.set_theme("dark", "MONO", __user__=USER))
+    assert torke._theme(USER) == {"mode": "dark", "accent": "mono"}
+    css = torke._HUD_CSS
+    for sel in ('html[data-accent="mono"]{', 'html[data-mode="light"][data-accent="mono"]{'):
+        block = css[css.index(sel):css.index("}", css.index(sel))]
+        for var in ("--abyss", "--panel", "--line", "--ice", "--steel", "--arc"):
+            assert var in block
+        # every color in the black and white look is a gray (r = g = b)
+        for h in _re.findall(r"#([0-9a-fA-F]{3,6})\b", block):
+            h = "".join(c * 2 for c in h) if len(h) == 3 else h
+            assert h[0:2] == h[2:4] == h[4:6], (h, block)
+        for rgb in _re.findall(r"--[a-z-]*rgb:(\d+),(\d+),(\d+)", block):
+            assert rgb[0] == rgb[1] == rgb[2], (rgb, block)
+        assert "--amber" not in block  # warnings keep their color
+    assert "Black and white" in card_html(run(tool.open_project("Shop vac", __user__=USER)))
