@@ -115,7 +115,8 @@ All off by default:
 ## Privacy
 
 - **No outside fonts, scripts or tracking.** Cards are self-contained.
-- **Pictures, when turned on,** load from the site they came from, so that site sees the request.
+- **Pictures, when turned on,** load from the site they came from, so that site sees the request. With **Keep copies in Homebox** on, TorKe downloads the picture once and keeps it on the item, and later cards load it from Homebox instead.
+- **Kept copies** (off by default) are files attached to the item in your own Homebox: the picture, iFixit guides, and pages and PDFs from the manual sites that are on. TorKe only adds them; it never deletes anything. Links-only sites are never copied.
 - **Searches** go through your own SearXNG if you set one. Otherwise TorKe gives you links to open yourself.
 - **Your tools, parts and repair log** stay in your own Homebox. TorKe keeps only the open project for each chat on your Open WebUI server.
 - **The scanner feed,** when turned on, reads trouble codes from a bridge on your own network. Nothing goes to the internet.
@@ -127,7 +128,7 @@ Read the [full warning](DISCLAIMER.md). The first time you use TorKe it shows a 
 
 ## Status
 
-Version 0.8.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
+Version 0.9.0 is a draft. It passes its offline tests, including against a stand-in Homebox, but hasn't been tested in a live Open WebUI or against a real Homebox yet. The parts to check first are listed at the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
 ## For developers
 

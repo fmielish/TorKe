@@ -29,6 +29,10 @@ With **Recall checks** on, Safety warnings also checks two free US government so
 - **NHTSA** recalls by year, make and model: vehicles and car seats.
 - **CPSC** recalls by product name: household and children's products.
 
+## Kept copies
+
+With **Keep copies in Homebox** on, TorKe downloads what it reads once and attaches it to the item in Homebox, then reads that copy from then on. That covers iFixit guides (kept with their license and link), and pages and PDFs from Operation CHARM, LEMON Manuals and any custom site you added. Gray-area sites are copied the same as the others, so only turn the switch on if you're comfortable with that where you live. ManualsLib, RepairClinic and the carmaker links are never downloaded or copied; TorKe only gives you the links.
+
 ## Sources
 
 - [iFixit guidance for AI and automated use](https://www.ifixit.com/llms.txt)

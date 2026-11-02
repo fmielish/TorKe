@@ -2,6 +2,14 @@
 
 TorKe is a draft. It passes its offline tests but hasn't been tested in a live Open WebUI, a real Homebox, a real Home Assistant or a real scanner yet. See the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
+## 0.9.0 (draft, 2026-11-02)
+
+- **Keep copies in Homebox** (new switch, off by default). Pictures and manuals are downloaded once, attached to the item in Homebox, and read from there afterwards:
+  - the picture of the thing being fixed (the project card shows the kept one, and doesn't search again),
+  - iFixit guides, kept with their license and link,
+  - pages and PDFs TorKe reads from the readable manual sites that are on (Operation CHARM, LEMON Manuals and custom sites).
+  Kept guides and pages can be searched with the item's manual. Links-only sites (ManualsLib, RepairClinic, carmaker manuals) are never downloaded or copied. A photo already attached to the item in Homebox is shown too, the person's own first. A photo attached in the chat is shown but never saved. TorKe only adds files; it never changes or deletes anything else. Needs Let TorKe update Homebox, and an item whose name has every word of what you called it, so a copy never lands on the wrong year or model.
+
 ## 0.8.0 (draft, 2026-10-30)
 
 - **Step card.** When asked to walk through a job, TorKe can show the steps it read from a manual or guide as a card: one step at a time (tap the right side to go forward, the left side to go back) or a full list you can tick off. Torque values not confirmed from a manual are marked, and the card names its source. It doesn't remember which step you're on.

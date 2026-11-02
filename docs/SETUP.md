@@ -62,6 +62,8 @@ Each tool or part to get has "For" in its description, such as "For 2012 Honda C
 - **Shopping:** "What do I need to buy?" shows tools to get and parts to get side by side. **Buy** opens the store page TorKe saved, or a web search when there isn't one; rentals get **Find a rental**. The two lists stay separate.
 - **Job done:** the project card's **Job done** button shows what to close out: installed parts to archive, rented or borrowed tools to return, and anything left on the lists for that job. It has boxes for **Mileage** (vehicles; "Mileage or hours" for yard equipment and other machines; none for appliances) and **Notes**. One tap on **Finish job** does it all and writes the repair log with the date, mileage, notes and part numbers. Homebox's maintenance log has no mileage field, so the mileage goes at the top of the entry's description. On a touchscreen, tapping either box pops up a bigger one. Phones and tablets use their own keyboard (the number pad for mileage). Other touchscreens, such as a garage or wall screen running a desktop browser, get a number pad and a typing pad built into the card, since many have no keyboard of their own. TorKe guesses which from the browser; if it guesses wrong, the pop-up's **Use device keyboard** / **Show on-screen keys** button switches.
 
+**Kept copies:** with **Keep copies in Homebox** on (section 5), TorKe attaches what it downloads to the item, so it only downloads each thing once: the picture, iFixit guides, and pages and PDFs from the readable manual sites. The files are named `torke-picture-...` and `torke-copy-...`. TorKe never deletes them; to make it fetch something again (a wrong picture, say), delete that attachment in Homebox, or attach your own photo, which TorKe prefers. Files bigger than Homebox's upload limit (10 MB unless you changed it) can't be kept, and TorKe says so.
+
 **Manuals:** attach the PDF to the item in Homebox with the attachment type **Manual**. TorKe matches items by name, so name them the way people say them, such as "Bosch dishwasher SHE3AR75UC". TorKe reads text from PDFs; a manual that's only scanned pictures has no text, and TorKe says so.
 
 Homebox 0.26 (June 2026) replaced its "items" API with a new "entities" API. TorKe works with both. Try each step once after setup (see the end of this guide).
@@ -76,9 +78,10 @@ Every switch starts off.
 |---|---|---|
 | Homebox | Where TorKe keeps tools, parts, manuals and the repair log | Address and an API key or login (section 4) |
 | Let TorKe update Homebox | Saving tools and parts, archiving, and the repair log | Homebox |
+| Keep copies in Homebox | Download the item's picture, iFixit guides, and manual pages and PDFs once and attach them to the item. Gray-area sites are copied too, if they're on. Links-only sites never are. | Homebox, Let TorKe update Homebox |
 | Tools, Parts, To get and Rent tags; Tools location; Parts shelf location | The names TorKe uses in Homebox | Homebox |
 | SearXNG address | Real search results for pictures, videos, manuals and parts. Without it, TorKe gives plain search links. | SearXNG with JSON output (section 6) |
-| Pictures | A photo of the thing on the project card, loaded from the original site with a link to it. A photo the user attaches always shows. | SearXNG |
+| Pictures | A photo of the thing on the project card, loaded from the original site with a link to it (or from the kept copy). A photo the user attaches always shows. | SearXNG |
 | YouTube API key | Video results when there's no SearXNG | A key from Google Cloud (section 7) |
 | iFixit, ManualsLib, RepairClinic, Carmaker owner's manuals | Manual sites. See [MANUAL-SITES.md](MANUAL-SITES.md) for how each is used. | Nothing |
 | Operation CHARM, LEMON Manuals | Factory car manuals. **Legal gray area**, so read the warning first. | Nothing |
@@ -199,15 +202,17 @@ To skip the confirmation, an admin can turn on **Settings > Interface > iframe S
 - **No pictures:** turn on **Pictures**, set the SearXNG address, and check that JSON output is on (section 6). Some sites block their images from showing elsewhere; TorKe then shows the placeholder.
 - **"Search failed" errors:** Open WebUI's server can't reach SearXNG or the site. Check the address from inside the Open WebUI container.
 - **YouTube sign-in failed:** the refresh token expired or was revoked. If the Google project is in Testing, see the 7-day catch in section 7.
+- **No copy was kept:** turn on **Keep copies in Homebox** and **Let TorKe update Homebox**, and check that the item is in Homebox with a name that has every word you used ("2012 Honda Civic", not "2013 Honda Civic"). TorKe says why in its answer.
 - **A manual won't read:** it may be scanned pictures with no text, or over 60 MB. Open WebUI includes the PDF reader TorKe uses (pypdf); if it's missing, install it in Open WebUI's environment.
 
 ## Things to verify on your setup
 
-TorKe 0.8.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
+TorKe 0.9.0 passed its offline tests, including against a stand-in Homebox for both the old and new APIs, but hasn't yet been tested in a live Open WebUI or against a real Homebox. Try these once. They're marked `VERIFY` in the code.
 
 - **Homebox updates:** that changing an item (moving a tool to "owned", putting a part on the shelf, archiving) keeps its other details. TorKe sends back everything it read, but Homebox's notes don't spell out how its update works.
 - **Homebox sign-in:** that an API key works as a bearer token.
 - **Manual downloads** on Homebox versions before 0.26.
+- **Kept copies:** that Homebox accepts the upload (a multipart POST with the fields file, type and name), that attaching with type **Photo** makes the picture show on the item, that type **Manual** works for the saved guides and pages (JSON) as well as PDFs, that an attachment's title is the file name TorKe gave it (TorKe finds its copies by that name), and that the first PDF over Homebox's upload limit fails with a clear message.
 - **Attached photos:** that a photo attached in the chat shows on the project card.
 - **Buttons:** the confirmation behavior of card buttons.
 - **Job done boxes:** that you can type in the Mileage and Notes boxes inside Open WebUI's card frame, that what you typed shows in the Finish job message, and that the keyboard guess is right on your phone and on any garage or wall screen.
