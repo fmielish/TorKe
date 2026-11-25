@@ -1,0 +1,47 @@
+# Home Assistant side of the TorKe network devices add-on.
+# Change: both CHANGE-ME values, YOUR_PHONE, and the n8n address.
+
+# 1) In configuration.yaml (restart Home Assistant afterwards):
+rest_command:
+  torke_device_reply:
+    url: "http://n8n:5678/webhook/torke-reply-CHANGE-ME"
+    method: post
+    content_type: "application/json"
+    payload: "{{ {'action': action, 'reply_text': reply_text} | to_json }}"
+
+# 2) As automations. In automations.yaml, add the two list entries below to the
+#    list that's there. In the editor, paste one at a time without the leading dash.
+automation:
+  - alias: "TorKe devices: send to phone"
+    mode: queued
+    max: 30
+    triggers:
+      - trigger: webhook
+        webhook_id: "PASTE_LONG_RANDOM_ID"   # CHANGE-ME: the same ID as in the workflow's Settings
+        allowed_methods: [POST]
+        local_only: true
+    actions:
+      - action: notify.mobile_app_YOUR_PHONE
+        data:
+          title: "{{ trigger.json.title }}"
+          message: "{{ trigger.json.message }}"
+          data:
+            tag: "{{ trigger.json.tag }}"
+            url: "{{ trigger.json.url }}"           # iPhone: opens when tapped
+            clickAction: "{{ trigger.json.url }}"   # Android: opens when tapped
+            actions: "{{ trigger.json.actions }}"
+
+  - alias: "TorKe devices: send the answer to n8n"
+    mode: queued
+    max: 30
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.event.data.action.startswith('TORKE_') }}"
+    actions:
+      - action: rest_command.torke_device_reply
+        data:
+          action: "{{ trigger.event.data.action }}"
+          reply_text: "{{ trigger.event.data.reply_text | default('') }}"

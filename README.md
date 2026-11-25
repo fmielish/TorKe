@@ -44,6 +44,8 @@ TorKe (say "torque") is a repair coach for [Open WebUI](https://openwebui.com). 
 
 **Themes.** Every card has a theme button in its top corner: dark or light, in cyan, green, violet, red or black and white. Warnings stay amber in every look. The change shows right away, and **Save as my look** keeps it for that person, so their cards open that way next time.
 
+**New network devices (optional add-on).** If you run NetAlertX, n8n, SearXNG and Home Assistant, a new device on your network can be saved in Homebox, and you approve its manual from your phone. See [the add-on guide](addons/network-devices/README.md). It hasn't been tried on real systems yet.
+
 ## Install
 
 1. In Open WebUI, open **Workspace > Tools**, select **+**, paste [`torke.py`](torke.py), name it **TorKe** (tool ID `torke`) and save.

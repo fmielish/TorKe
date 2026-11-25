@@ -1,0 +1,263 @@
+{
+  "name": "TorKe network devices",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "torke-netalertx-CHANGE-ME",
+        "options": {}
+      },
+      "id": "netalertx-report",
+      "name": "NetAlertX report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "torke-reply-CHANGE-ME",
+        "options": {}
+      },
+      "id": "phone-reply",
+      "name": "Phone reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fill these in. The Homebox key is stored in this workflow, so remove it before sharing an export.\nconst settings = {\n  homeboxUrl: 'http://homebox:7745',\n  homeboxApiKey: 'PASTE_HOMEBOX_API_KEY',            // starts with hb_ (Homebox 0.26 or later)\n  searxngUrl: 'http://searxng:8080',\n  notifyWebhookUrl: 'http://homeassistant:8123/api/webhook/PASTE_LONG_RANDOM_ID',\n  tag: 'Network device',\n  location: '',                                       // a Homebox location name; blank uses the first one\n  maxNewPerRun: 10,\n  maxPdfMB: 10,                                       // keep at or under Homebox's upload limit\n  ignoreMacs: [],                                     // MAC addresses or prefixes, e.g. 'aa:bb:cc'\n  skipSites: [],                                      // more websites never to download from\n};\nreturn [{ json: { settings, body: $input.first().json.body || {} } }];\n"
+      },
+      "id": "settings",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shared helpers (the same block sits in each Code node that needs it).\nconst cfg = $('Settings').first().json.settings;\nconst http = (options) => this.helpers.httpRequest(options);\nconst trimSlash = (s) => String(s || '').trim().replace(/\\/+$/, '');\n\n// Text from a device or a website: one line, no control characters or markup brackets, limited length.\nconst clean = (s, max = 60) => String(s == null ? '' : s)\n  .replace(/[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069<>{}]/g, ' ')\n  .replace(/\\s+/g, ' ').trim().slice(0, max).trim();\n\nconst hash = (s) => {\n  let h = 2166136261;\n  for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }\n  return h.toString(16).padStart(8, '0');\n};\n\n// Only ordinary public web addresses: a domain name (never a bare number address), normal ports, no sign-in.\nconst publicHost = (url) => {\n  const m = /^https?:\\/\\/([^\\/?#\\\\\\s]+)(?:[\\/?#]\\S*)?$/i.exec(String(url || ''));\n  if (!m || /\\\\/.test(url)) return '';\n  const hp = /^([a-z0-9.-]+?)\\.?(?::(80|443))?$/i.exec(m[1]);\n  if (!hp) return '';\n  const host = hp[1].toLowerCase();\n  const last = host.split('.').pop();\n  if (!host.includes('.') || !/^([a-z]{2,}|xn--[a-z0-9-]+)$/.test(last)) return '';\n  if (/(^|\\.)(local|localhost|localdomain|lan|internal|intranet|home|corp|arpa|test|invalid)$/.test(host)) return '';\n  return host;\n};\n// Sites TorKe never downloads from (links only), plus the gray-area manual sites.\nconst NEVER = ['manualslib.com', 'repairclinic.com', 'charm.li', 'lemon-manuals.la', 'lemon-manuals.org.ua'];\nconst blocked = (host) => NEVER.concat(cfg.skipSites || [])\n  .some((d) => host === d || host.endsWith('.' + d));\nconst usable = (url) => { const h = publicHost(url); return h && !blocked(h) ? h : ''; };\n\nconst homebox = (method, path, body) => http({\n  method, url: trimSlash(cfg.homeboxUrl) + '/api/v1' + path, body, json: true,\n  headers: { Authorization: 'Bearer ' + cfg.homeboxApiKey },\n});\n\nconst notify = async (title, message, extra = {}) => {\n  try {\n    await http({ method: 'POST', url: cfg.notifyWebhookUrl, json: true,\n      body: { title: clean(title, 80), message: String(message).slice(0, 600), actions: [], url: '', tag: '', ...extra } });\n    return true;\n  } catch (e) { return false; }\n};\n\n// Forget an offer. n8n saves the memory when a top-level key is set, so replace the list.\nconst forget = (itemId) => {\n  const memory = $getWorkflowStaticData('global');\n  const { [itemId]: gone, ...rest } = memory.offers || {};\n  memory.offers = rest;\n};\n\n// Search for a PDF manual and send the phone an approval notification.\nconst offerManual = async (itemId, itemName, query) => {\n  const memory = $getWorkflowStaticData('global');\n  memory.offers = memory.offers || {};\n  let found = null; let failed = '';\n  try {\n    const data = await http({ method: 'GET', json: true,\n      url: trimSlash(cfg.searxngUrl) + '/search?format=json&q=' + encodeURIComponent(query + ' manual filetype:pdf') });\n    for (const r of (data && data.results) || []) {\n      const url = String((r && r.url) || '');\n      if (url.length <= 600 && /\\.pdf($|[?#])/i.test(url) && usable(url)) {\n        found = { url, title: clean(r.title, 90) || 'PDF', host: usable(url) }; break;\n      }\n    }\n  } catch (e) { failed = 'The search failed. Check SearXNG and that its JSON output is on.'; }\n  const id = hash(found ? found.url : query + Date.now());\n  delete memory.offers[itemId];\n  memory.offers[itemId] = { hash: id, url: found ? found.url : '', name: itemName };\n  const keys = Object.keys(memory.offers);\n  for (const k of keys.slice(0, Math.max(0, keys.length - 200))) delete memory.offers[k];\n  memory.offers = { ...memory.offers };  // n8n saves the memory when a top-level key is set\n  const act = (verb) => 'TORKE_' + verb + '|' + itemId + '|' + id;\n  const model = { action: act('MODEL'), title: 'Fix model', behavior: 'textInput',\n    textInputButtonTitle: 'Search', textInputPlaceholder: 'Maker and model number' };\n  const skip = { action: act('SKIP'), title: 'Skip' };\n  const message = found\n    ? `${itemName}\\nFound: ${found.title}\\nFrom: ${found.host}\\nCheck that it matches your model.`\n    : `${itemName}\\n${failed || 'No PDF manual found.'}\\nType the maker and model number to search again.`;\n  return notify(found ? 'Save this manual?' : 'Manual needed', message, {\n    actions: found ? [{ action: act('SAVE'), title: 'Save manual' }, model, skip] : [model, skip],\n    url: found ? found.url : '', tag: 'torke-' + itemId });\n};\n\n// NetAlertX reported new devices: filter, add each to Homebox, search for its manual.\nif ($('Phone reply').isExecuted) return [];\n\nlet report = $('Settings').first().json.body;\nreport = report && report.attachments && report.attachments[0] && report.attachments[0].text;\nif (typeof report === 'string') { try { report = JSON.parse(report); } catch (e) { report = null; } }\nconst rows = (report && Array.isArray(report.new_devices)) ? report.new_devices : [];\n\nconst macOf = (s) => { const m = String(s || '').trim().toLowerCase().replace(/-/g, ':');\n  return /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(m) ? m : ''; };\nconst real = (s) => { const t = clean(s); return /^\\(?(unknown|name not found|null|none)\\)?$/i.test(t) ? '' : t.replace(/^\\(unknown\\)\\s*/i, ''); };\n\nconst wanted = []; const seen = new Set();\nfor (const row of rows) {\n  const mac = macOf(row.eveMac || row.MAC);\n  if (!mac || seen.has(mac)) continue;\n  seen.add(mac);\n  const first = parseInt(mac.slice(0, 2), 16);\n  if (first & 3) continue;                       // randomized or locally assigned (2), or group address (1)\n  if (mac === '00:00:00:00:00:00') continue;\n  if ((cfg.ignoreMacs || []).some((p) => p && mac.startsWith(String(p).toLowerCase().replace(/-/g, ':')))) continue;\n  wanted.push({ mac, vendor: real(row.devVendor), host: real(row.devName || row['Device name']) });\n}\nif (!wanted.length) return [];\n\nlet existing; let tagId; let parentId;\ntry {\n  const rowsOf = (d) => Array.isArray(d) ? d : (d && (d.items || d.entities)) || [];\n  const tags = rowsOf(await homebox('GET', '/tags'));\n  const tag = tags.find((t) => String(t.name).toLowerCase() === cfg.tag.toLowerCase());\n  tagId = tag ? tag.id : (await homebox('POST', '/tags', { name: cfg.tag })).id;\n  existing = [];\n  for (let page = 1; page <= 20; page++) {\n    const got = rowsOf(await homebox('GET', `/entities?pageSize=500&page=${page}&includeArchived=true&tags=${encodeURIComponent(tagId)}`));\n    existing.push(...got);\n    if (got.length < 500) break;\n  }\n  const places = rowsOf(await homebox('GET', '/entities?isLocation=true&pageSize=200'));\n  const place = places.find((p) => cfg.location && String(p.name).toLowerCase() === cfg.location.toLowerCase()) || places[0];\n  parentId = place && place.id;\n} catch (e) {\n  await notify('New devices not saved', `Homebox couldn't be read, so ${wanted.length} new device(s) weren't added: `\n    + wanted.map((d) => d.mac).join(', '));\n  throw e;\n}\n\nconst known = existing.map((e) => `${e.name || ''} ${e.description || ''}`.toLowerCase()).join('\\n');\nconst fresh = wanted.filter((d) => !known.includes(d.mac));\nconst done = [];\nfor (const d of fresh.slice(0, cfg.maxNewPerRun)) {\n  const guess = [d.vendor, d.host].filter(Boolean).join(' ');\n  const name = clean(guess || `Network device ${d.mac}`, 120);\n  let made;\n  try {\n    const body = { name, quantity: 1, tagIds: [tagId],\n      description: `MAC ${d.mac}. Network vendor: ${d.vendor || 'unknown'}. Hostname: ${d.host || 'unknown'}. `\n        + 'Added from NetAlertX; the name is a guess until the model is confirmed.' };\n    if (parentId) body.parentId = parentId;\n    made = await homebox('POST', '/entities', body);\n    if (!made || !made.id) throw new Error('no item id');\n  } catch (e) {\n    await notify('New device not saved', `Homebox didn't accept ${name} (${d.mac}).`);\n    continue;\n  }\n  const sent = await offerManual(made.id, name, guess || d.mac.slice(0, 8));\n  done.push({ json: { itemId: made.id, name, mac: d.mac, notified: sent } });\n}\nconst over = fresh.slice(cfg.maxNewPerRun);\nif (over.length) {\n  await notify('More new devices', `${over.length} more weren't added (limit ${cfg.maxNewPerRun} per report): `\n    + over.map((d) => d.mac).join(', '));\n}\nreturn done;\n"
+      },
+      "id": "new-devices",
+      "name": "New devices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shared helpers (the same block sits in each Code node that needs it).\nconst cfg = $('Settings').first().json.settings;\nconst http = (options) => this.helpers.httpRequest(options);\nconst trimSlash = (s) => String(s || '').trim().replace(/\\/+$/, '');\n\n// Text from a device or a website: one line, no control characters or markup brackets, limited length.\nconst clean = (s, max = 60) => String(s == null ? '' : s)\n  .replace(/[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069<>{}]/g, ' ')\n  .replace(/\\s+/g, ' ').trim().slice(0, max).trim();\n\nconst hash = (s) => {\n  let h = 2166136261;\n  for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }\n  return h.toString(16).padStart(8, '0');\n};\n\n// Only ordinary public web addresses: a domain name (never a bare number address), normal ports, no sign-in.\nconst publicHost = (url) => {\n  const m = /^https?:\\/\\/([^\\/?#\\\\\\s]+)(?:[\\/?#]\\S*)?$/i.exec(String(url || ''));\n  if (!m || /\\\\/.test(url)) return '';\n  const hp = /^([a-z0-9.-]+?)\\.?(?::(80|443))?$/i.exec(m[1]);\n  if (!hp) return '';\n  const host = hp[1].toLowerCase();\n  const last = host.split('.').pop();\n  if (!host.includes('.') || !/^([a-z]{2,}|xn--[a-z0-9-]+)$/.test(last)) return '';\n  if (/(^|\\.)(local|localhost|localdomain|lan|internal|intranet|home|corp|arpa|test|invalid)$/.test(host)) return '';\n  return host;\n};\n// Sites TorKe never downloads from (links only), plus the gray-area manual sites.\nconst NEVER = ['manualslib.com', 'repairclinic.com', 'charm.li', 'lemon-manuals.la', 'lemon-manuals.org.ua'];\nconst blocked = (host) => NEVER.concat(cfg.skipSites || [])\n  .some((d) => host === d || host.endsWith('.' + d));\nconst usable = (url) => { const h = publicHost(url); return h && !blocked(h) ? h : ''; };\n\nconst homebox = (method, path, body) => http({\n  method, url: trimSlash(cfg.homeboxUrl) + '/api/v1' + path, body, json: true,\n  headers: { Authorization: 'Bearer ' + cfg.homeboxApiKey },\n});\n\nconst notify = async (title, message, extra = {}) => {\n  try {\n    await http({ method: 'POST', url: cfg.notifyWebhookUrl, json: true,\n      body: { title: clean(title, 80), message: String(message).slice(0, 600), actions: [], url: '', tag: '', ...extra } });\n    return true;\n  } catch (e) { return false; }\n};\n\n// Forget an offer. n8n saves the memory when a top-level key is set, so replace the list.\nconst forget = (itemId) => {\n  const memory = $getWorkflowStaticData('global');\n  const { [itemId]: gone, ...rest } = memory.offers || {};\n  memory.offers = rest;\n};\n\n// Search for a PDF manual and send the phone an approval notification.\nconst offerManual = async (itemId, itemName, query) => {\n  const memory = $getWorkflowStaticData('global');\n  memory.offers = memory.offers || {};\n  let found = null; let failed = '';\n  try {\n    const data = await http({ method: 'GET', json: true,\n      url: trimSlash(cfg.searxngUrl) + '/search?format=json&q=' + encodeURIComponent(query + ' manual filetype:pdf') });\n    for (const r of (data && data.results) || []) {\n      const url = String((r && r.url) || '');\n      if (url.length <= 600 && /\\.pdf($|[?#])/i.test(url) && usable(url)) {\n        found = { url, title: clean(r.title, 90) || 'PDF', host: usable(url) }; break;\n      }\n    }\n  } catch (e) { failed = 'The search failed. Check SearXNG and that its JSON output is on.'; }\n  const id = hash(found ? found.url : query + Date.now());\n  delete memory.offers[itemId];\n  memory.offers[itemId] = { hash: id, url: found ? found.url : '', name: itemName };\n  const keys = Object.keys(memory.offers);\n  for (const k of keys.slice(0, Math.max(0, keys.length - 200))) delete memory.offers[k];\n  memory.offers = { ...memory.offers };  // n8n saves the memory when a top-level key is set\n  const act = (verb) => 'TORKE_' + verb + '|' + itemId + '|' + id;\n  const model = { action: act('MODEL'), title: 'Fix model', behavior: 'textInput',\n    textInputButtonTitle: 'Search', textInputPlaceholder: 'Maker and model number' };\n  const skip = { action: act('SKIP'), title: 'Skip' };\n  const message = found\n    ? `${itemName}\\nFound: ${found.title}\\nFrom: ${found.host}\\nCheck that it matches your model.`\n    : `${itemName}\\n${failed || 'No PDF manual found.'}\\nType the maker and model number to search again.`;\n  return notify(found ? 'Save this manual?' : 'Manual needed', message, {\n    actions: found ? [{ action: act('SAVE'), title: 'Save manual' }, model, skip] : [model, skip],\n    url: found ? found.url : '', tag: 'torke-' + itemId });\n};\n\n// A button press from the phone: save the manual, search again with a typed model, or skip.\nif (!$('Phone reply').isExecuted) return [];\nconst body = $('Settings').first().json.body || {};\nconst m = /^TORKE_(SAVE|MODEL|SKIP)\\|([A-Za-z0-9-]{1,64})\\|([0-9a-f]{8})$/.exec(String(body.action || ''));\nif (!m) return [];\nconst [, verb, itemId, id] = m;\nconst memory = $getWorkflowStaticData('global');\nconst offer = memory.offers && memory.offers[itemId];\nif (!offer || offer.hash !== id) {\n  await notify('Out of date', 'That notification is old or already handled. Nothing was changed.');\n  return [];\n}\nif (verb === 'SKIP') { forget(itemId); return []; }\n\nif (verb === 'MODEL') {\n  const typed = clean(body.reply_text, 100);\n  if (!typed) { await notify('No model typed', 'Nothing was changed.'); return []; }\n  try {\n    const full = await homebox('GET', '/entities/' + itemId);\n    const tagged = (full.tags || []).some((t) => String(t.name).toLowerCase() === cfg.tag.toLowerCase());\n    if (!tagged) throw new Error('not tagged');\n    // Homebox's update replaces the whole item, so send back everything that was read.\n    const drop = ['attachments', 'createdAt', 'updatedAt', 'parent', 'location', 'tags', 'labels', 'children',\n      'entityType', 'imageId', 'thumbnailId', 'maintenance'];\n    const next = Object.fromEntries(Object.entries(full).filter(([k]) => !drop.includes(k)));\n    next.name = typed; next.modelNumber = typed;\n    next.tagIds = full.tags.map((t) => t.id);\n    if (full.parent && full.parent.id) next.parentId = full.parent.id;\n    if (full.entityType && full.entityType.id) next.entityTypeId = full.entityType.id;\n    await homebox('PUT', '/entities/' + itemId, next);\n  } catch (e) {\n    await notify('Model not saved', `Homebox couldn't update ${offer.name}. Nothing else was done.`);\n    return [];\n  }\n  await offerManual(itemId, typed, typed);\n  return [];\n}\n\n// SAVE\nif (!usable(offer.url)) { await notify('Not saved', 'There is no safe link to download for this one.'); return []; }\nconst fileName = `network-manual-${id}.pdf`;\ntry {\n  const full = await homebox('GET', '/entities/' + itemId);\n  if ((full.attachments || []).some((a) => String(a.title || (a.document && a.document.title) || '') === fileName)) {\n    forget(itemId);\n    await notify('Already saved', `${offer.name} already has this manual.`);\n    return [];\n  }\n} catch (e) { await notify('Not saved', `Homebox couldn't be read for ${offer.name}.`); return []; }\n\n// Follow redirects here, checking every address, so the download node never follows one by itself.\nlet url = offer.url;\nfor (let hop = 0; ; hop++) {\n  let res;\n  try {\n    res = await http({ method: 'HEAD', url, returnFullResponse: true, disableFollowRedirect: true,\n      ignoreHttpStatusErrors: true, timeout: 20000 });\n  } catch (e) { break; }\n  const code = res.statusCode;\n  const headers = res.headers || {};\n  if (code >= 300 && code < 400 && headers.location) {\n    let to = String(headers.location);\n    const origin = /^(https?:)\\/\\/[^\\/?#]+/i.exec(url);\n    if (to.startsWith('//')) to = origin[1] + to;\n    else if (to.startsWith('/')) to = origin[0] + to;\n    else if (!/^[a-z][a-z0-9+.-]*:/i.test(to)) to = url.replace(/[?#].*$/, '').replace(/[^\\/]*$/, '') + to;\n    if (hop >= 4 || !usable(to)) { await notify('Not saved', 'The link redirects somewhere that isn\\'t allowed.'); return []; }\n    url = to; continue;\n  }\n  if (Number(headers['content-length'] || 0) > cfg.maxPdfMB * 1000000) {\n    await notify('Not saved', `The file is over ${cfg.maxPdfMB} MB. Download it yourself and attach it in Homebox.`);\n    return [];\n  }\n  break;\n}\nreturn [{ json: { itemId, hash: id, name: offer.name, url, fileName } }];\n"
+      },
+      "id": "handle-reply",
+      "name": "Handle reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "download",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accept the download only if it really is a PDF and small enough.\nconst cfg = $('Settings').first().json.settings;\nconst job = $('Handle reply').first().json;\nconst item = $input.first();\nlet problem = '';\nlet data = null;\nif (!item.binary || !item.binary.data) problem = \"The download didn't work.\";\nelse {\n  data = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (data.length > cfg.maxPdfMB * 1000000) problem = `The file is over ${cfg.maxPdfMB} MB.`;\n  else if (data.subarray(0, 5).toString('latin1') !== '%PDF-') problem = \"The link didn't return a PDF.\";\n}\nif (problem) {\n  await this.helpers.httpRequest({ method: 'POST', url: cfg.notifyWebhookUrl, json: true,\n    body: { title: 'Manual not saved', message: `${job.name}: ${problem}`, actions: [], url: job.url, tag: 'torke-' + job.itemId } });\n  return [];\n}\nreturn [{ json: job, binary: { data: { ...item.binary.data, fileName: job.fileName, mimeType: 'application/pdf', fileExtension: 'pdf' } } }];\n"
+      },
+      "id": "check-pdf",
+      "name": "Check PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.settings.homeboxUrl.replace(/\\/+$/, '') }}/api/v1/entities/{{ $json.itemId }}/attachments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Settings').first().json.settings.homeboxApiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "manual"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.fileName }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "attach",
+      "name": "Attach to Homebox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tell the phone whether Homebox took the file.\nconst cfg = $('Settings').first().json.settings;\nconst job = $('Handle reply').first().json;\nconst out = $input.first().json || {};\nconst ok = !out.error && Boolean(out.id);\nif (ok) {  // n8n saves the memory when a top-level key is set, so replace the list\n  const memory = $getWorkflowStaticData('global');\n  const { [job.itemId]: gone, ...rest } = memory.offers || {};\n  memory.offers = rest;\n}\nawait this.helpers.httpRequest({ method: 'POST', url: cfg.notifyWebhookUrl, json: true,\n  body: { title: ok ? 'Manual saved' : 'Manual not saved',\n    message: ok ? `${job.name}: attached in Homebox as a Manual.`\n      : `${job.name}: Homebox didn't accept the file. Open the link and attach it in Homebox yourself.`,\n    actions: [], url: ok ? '' : job.url, tag: 'torke-' + job.itemId } });\nreturn [{ json: { saved: ok, itemId: job.itemId } }];\n"
+      },
+      "id": "report-result",
+      "name": "Report result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "NetAlertX report": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phone reply": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "New devices",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Handle reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle reply": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Check PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check PDF": {
+      "main": [
+        [
+          {
+            "node": "Attach to Homebox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach to Homebox": {
+      "main": [
+        [
+          {
+            "node": "Report result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

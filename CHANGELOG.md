@@ -2,6 +2,10 @@
 
 TorKe is a draft. It passes its offline tests but hasn't been tested in a live Open WebUI, a real Homebox, a real Home Assistant or a real scanner yet. See the end of the [setup guide](docs/SETUP.md#things-to-verify-on-your-setup).
 
+## Add-on: new network devices (draft, 2026-11-25)
+
+- Optional [n8n workflow](addons/network-devices/README.md): NetAlertX reports a new device, it is added to Homebox (randomized addresses and duplicates are skipped), SearXNG looks for a PDF manual, and a Home Assistant phone notification lets you save it, fix the model or skip. The device is added without asking; the manual is saved only after a tap. TorKe itself is unchanged. Not yet tried on real systems.
+
 ## 0.9.0 (draft, 2026-11-02)
 
 - **Keep copies in Homebox** (new switch, off by default). Pictures and manuals are downloaded once, attached to the item in Homebox, and read from there afterwards:
