@@ -25,10 +25,19 @@ TorKe brings each job's manuals and repair documents together with the tools and
 2. Name it **TorKe** and choose your base model.
 3. Paste [`model/torke-system-prompt.md`](../model/torke-system-prompt.md) into the system prompt.
 4. Under **Tools**, turn on **TorKe**.
-5. Optional: upload [`assets/torke-icon.png`](../assets/torke-icon.png) as its picture.
+5. Optional: upload an icon as its picture (see [Pick an icon color](#pick-an-icon-color)).
 6. Save.
 
 **Or import it:** in **Workspace > Models**, import [`model/torke-model.json`](../model/torke-model.json). Then open the model, choose a base model and save. The file can't know which models you have, so it leaves the base model empty.
+
+### Pick an icon color
+
+| Amber (default) | Shop red | Steel and orange |
+|---|---|---|
+| <img src="../assets/torke-icon.png" width="96" alt="Amber TorKe icon"> | <img src="../assets/torke-icon-red.png" width="96" alt="Red TorKe icon"> | <img src="../assets/torke-icon-steel.png" width="96" alt="Steel and orange TorKe icon"> |
+| [`torke-icon.png`](../assets/torke-icon.png) | [`torke-icon-red.png`](../assets/torke-icon-red.png) | [`torke-icon-steel.png`](../assets/torke-icon-steel.png) |
+
+The model file comes with the amber icon. To use another, download it, open the TorKe model in **Workspace > Models**, upload it as the picture and save. This changes the model's picture only, not the colors of TorKe's cards.
 
 ## 4. Connect Homebox
 
